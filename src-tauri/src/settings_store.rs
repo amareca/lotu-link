@@ -22,6 +22,8 @@ struct StoredVideo {
 struct StoredSettings {
     v: u32,
     video: StoredVideo,
+    #[serde(default)]
+    onboarding_seen: bool,
 }
 
 impl From<SettingsData> for StoredSettings {
@@ -33,6 +35,7 @@ impl From<SettingsData> for StoredSettings {
                 max_fps: data.video.max_fps,
                 bit_rate: data.video.bit_rate,
             },
+            onboarding_seen: data.onboarding_seen,
         }
     }
 }
@@ -75,7 +78,10 @@ impl SettingsStore for FileSettingsStore {
             stored_video.bit_rate,
         )
         .map_err(|error| SettingsError::Invalid(error.to_string()))?;
-        Ok(SettingsData { video })
+        Ok(SettingsData {
+            video,
+            onboarding_seen: stored.onboarding_seen,
+        })
     }
 
     fn save(&self, data: &SettingsData) -> Result<(), SettingsError> {
@@ -123,6 +129,7 @@ mod tests {
         let store = FileSettingsStore::new(dir.clone());
         let expected = SettingsData {
             video: VideoConfig::new(1280, 30, 4_000_000).expect("valid"),
+            onboarding_seen: true,
         };
 
         store.save(&expected).expect("save");

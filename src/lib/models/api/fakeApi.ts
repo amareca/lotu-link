@@ -8,6 +8,7 @@ import type {
   RecordingDto,
   RecordingStateDto,
   ReplaySessionDto,
+  RsaFingerprintDto,
   ScreenshotDto,
   ScrollInput,
   SessionDto,
@@ -77,6 +78,8 @@ export interface FakeApiOptions {
   /** M4: initial settings returned by `getSettings` (tests only). */
   settings?: SettingsDto | null;
   settingsFailure?: ErrorDto | null;
+  /** M4: fingerprint returned by `getRsaFingerprint` (tests only). */
+  fingerprint?: RsaFingerprintDto | null;
 }
 
 export class FakeApi implements LotuApi {
@@ -104,6 +107,8 @@ export class FakeApi implements LotuApi {
   readonly #settingsFailure: ErrorDto | null;
   #settings: SettingsDto;
   #saveSettingsCalls = 0;
+  #markSeenCalls = 0;
+  readonly #fingerprint: RsaFingerprintDto;
   readonly #screenshotResult: ScreenshotDto;
   #captureCalls = 0;
   #startRecordingCalls = 0;
@@ -126,6 +131,11 @@ export class FakeApi implements LotuApi {
     this.#settings = options.settings ?? {
       video: { maxSize: 0, maxFps: 60, bitRate: 8_000_000 },
       restartRequired: false,
+      onboardingSeen: false,
+    };
+    this.#fingerprint = options.fingerprint ?? {
+      fingerprint: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99",
+      error: null,
     };
     this.#screenshotResult = options.screenshotResult ?? {
       path: "captures/lotu-capture.png",
@@ -206,6 +216,10 @@ export class FakeApi implements LotuApi {
 
   get saveSettingsCalls(): number {
     return this.#saveSettingsCalls;
+  }
+
+  get markSeenCalls(): number {
+    return this.#markSeenCalls;
   }
 
   get currentSettings(): SettingsDto {
@@ -348,8 +362,25 @@ export class FakeApi implements LotuApi {
     if (video.bitRate <= 0 || video.maxSize > 8192 || video.maxFps > 240) {
       throw new ApiError({ code: "settings_invalid", message: "invalid video settings" });
     }
-    this.#settings = { video: { ...video }, restartRequired: false };
+    this.#settings = {
+      video: { ...video },
+      restartRequired: false,
+      onboardingSeen: this.#settings.onboardingSeen,
+    };
     return this.currentSettings;
+  }
+
+  async markOnboardingSeen(): Promise<SettingsDto> {
+    this.#markSeenCalls += 1;
+    await this.#wait();
+    if (this.#settingsFailure !== null) throw new ApiError(this.#settingsFailure);
+    this.#settings = { ...this.#settings, onboardingSeen: true };
+    return this.currentSettings;
+  }
+
+  async getRsaFingerprint(): Promise<RsaFingerprintDto> {
+    await this.#wait();
+    return { ...this.#fingerprint };
   }
 
   onRecordingState(_listener: (state: RecordingStateDto) => void): () => void {

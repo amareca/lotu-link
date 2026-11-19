@@ -8,6 +8,7 @@ import {
   parseReplaySessionDto,
   parseScreenshotDto,
   parseSessionDto,
+  parseRsaFingerprintDto,
   parseSettingsDto,
   toErrorDto,
   type DeviceDto,
@@ -17,6 +18,7 @@ import {
   type RecordingDto,
   type RecordingStateDto,
   type ReplaySessionDto,
+  type RsaFingerprintDto,
   type ScreenshotDto,
   type ScrollInput,
   type SessionDto,
@@ -135,6 +137,22 @@ export class TauriApi implements LotuApi {
   async saveSettings(video: VideoSettingsDto): Promise<SettingsDto> {
     try {
       return parseSettingsDto(await invoke<unknown>("save_settings", { video }));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  async markOnboardingSeen(): Promise<SettingsDto> {
+    try {
+      return parseSettingsDto(await invoke<unknown>("mark_onboarding_seen"));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  async getRsaFingerprint(): Promise<RsaFingerprintDto> {
+    try {
+      return parseRsaFingerprintDto(await invoke<unknown>("get_rsa_fingerprint"));
     } catch (cause) {
       throw new ApiError(toErrorDto(cause));
     }

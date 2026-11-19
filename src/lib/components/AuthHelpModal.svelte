@@ -1,11 +1,27 @@
 <script lang="ts">
+  import { writeSystemClipboard } from "../models/systemClipboard";
+
   interface Props {
     onClose: () => void;
+    fingerprint: string | null;
+    error: string | null;
+    loading: boolean;
   }
 
-  let { onClose }: Props = $props();
+  let { onClose, fingerprint, error, loading }: Props = $props();
 
   let closeButton = $state<HTMLButtonElement | null>(null);
+  let copied = $state(false);
+
+  async function copyFingerprint(): Promise<void> {
+    if (fingerprint === null) return;
+    try {
+      await writeSystemClipboard(fingerprint);
+      copied = true;
+    } catch {
+      copied = false;
+    }
+  }
 
   $effect(() => {
     const frame = requestAnimationFrame(() => {
@@ -89,8 +105,28 @@
       </div>
 
       <div class="auth-note">
-        La huella RSA real de este equipo se mostrará en M4. En M0 no se muestra
-        ninguna huella simulada.
+        {#if loading}
+          Leyendo la huella RSA de este equipo…
+        {:else if fingerprint !== null}
+          <div class="fingerprint-label">Huella RSA de este equipo</div>
+          <div class="fingerprint-row">
+            <code class="fingerprint">{fingerprint}</code>
+            <button
+              class="btn small"
+              type="button"
+              onclick={() => void copyFingerprint()}
+              title="Copiar huella"
+            >
+              {copied ? "Copiada" : "Copiar"}
+            </button>
+          </div>
+          <p class="fingerprint-help">Debe coincidir con la huella del diálogo del móvil.</p>
+        {:else}
+          <div class="fingerprint-label">No se pudo leer la huella RSA</div>
+          <p class="fingerprint-help">
+            {error ?? "Conecta el móvil y vuelve a intentarlo."}
+          </p>
+        {/if}
       </div>
     </div>
 
@@ -222,6 +258,33 @@
     background: #0b1422;
     border: 1px solid var(--border-soft);
     border-radius: 10px;
+  }
+
+  .fingerprint-label {
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .fingerprint-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .fingerprint {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font: 16px/1.4 ui-monospace, Consolas, "Cascadia Mono", monospace;
+    color: var(--lime);
+  }
+
+  .fingerprint-help {
+    margin: 6px 0 0;
+    font-size: 16px;
+    line-height: 1.45;
+    color: var(--dim);
   }
 
   .modal-foot {

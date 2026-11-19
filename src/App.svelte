@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import AuthHelpModal from "./lib/components/AuthHelpModal.svelte";
   import Drawer from "./lib/components/Drawer.svelte";
   import Rail from "./lib/components/Rail.svelte";
@@ -7,6 +8,7 @@
   import MirrorView from "./lib/views/MirrorView.svelte";
   import SettingsView from "./lib/views/SettingsView.svelte";
   import type { AppViewModel } from "./lib/viewmodels/AppViewModel.svelte";
+  import type { OnboardingViewModel } from "./lib/viewmodels/OnboardingViewModel.svelte";
   import type { DevicesViewModel } from "./lib/viewmodels/DevicesViewModel.svelte";
   import type { SessionViewModel } from "./lib/viewmodels/SessionViewModel.svelte";
   import type { SettingsViewModel } from "./lib/viewmodels/SettingsViewModel.svelte";
@@ -16,9 +18,10 @@
     devices: DevicesViewModel;
     session: SessionViewModel;
     settings: SettingsViewModel;
+    onboarding: OnboardingViewModel;
   }
 
-  let { app, devices, session, settings }: Props = $props();
+  let { app, devices, session, settings, onboarding }: Props = $props();
 
   const MIN_WIDTH = 400;
   const MIN_HEIGHT = 640;
@@ -50,9 +53,21 @@
     connectedDevice ? "ok" : unauthorizedCount > 0 ? "warn" : "muted",
   );
 
+  onMount(() => {
+    void settings.load();
+  });
+
   $effect(() => {
     devices.start();
     return () => devices.dispose();
+  });
+
+  $effect(() => {
+    if (app.authHelpOpen || settings.onboardingSeen) return;
+    const list = devices.devices;
+    if (list.length === 0 || list.some((device) => device.state === "unauthorized")) {
+      openAuthHelp();
+    }
   });
 
   $effect(() => {
@@ -166,6 +181,7 @@
   function openAuthHelp(): void {
     const active = document.activeElement;
     authReturnFocus = active instanceof HTMLElement ? active : null;
+    void onboarding.load();
     app.openAuthHelp();
   }
 
@@ -176,6 +192,7 @@
 
   function closeAuthHelp(): void {
     app.closeAuthHelp();
+    void settings.markSeen();
     restoreAuthFocus();
   }
 
@@ -200,6 +217,7 @@
     event.preventDefault();
 
     if (authWasOpen) {
+      void settings.markSeen();
       restoreAuthFocus();
     } else {
       document
@@ -305,7 +323,12 @@
 </div>
 
 {#if app.authHelpOpen}
-  <AuthHelpModal onClose={closeAuthHelp} />
+  <AuthHelpModal
+    onClose={closeAuthHelp}
+    fingerprint={onboarding.fingerprint}
+    error={onboarding.error}
+    loading={onboarding.loading}
+  />
 {/if}
 
 <style>

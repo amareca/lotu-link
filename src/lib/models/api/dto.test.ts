@@ -5,6 +5,7 @@ import {
   parseRecordingDto,
   parseRecordingStateDto,
   parseReplaySessionDto,
+  parseRsaFingerprintDto,
   parseScreenshotDto,
   parseSessionDto,
   parseSettingsDto,
@@ -263,16 +264,34 @@ describe("M3 capture and recording DTOs", () => {
   });
 });
 
+describe("M4 onboarding DTO", () => {
+  it("parses a real fingerprint", () => {
+    expect(parseRsaFingerprintDto({ fingerprint: "AA:BB", error: null })).toEqual({
+      fingerprint: "AA:BB",
+      error: null,
+    });
+  });
+
+  it("degrades safely when no key is available", () => {
+    const parsed = parseRsaFingerprintDto({ fingerprint: null, error: "missing key" });
+    expect(parsed.fingerprint).toBeNull();
+    expect(parsed.error).toBe("missing key");
+    expect(parseRsaFingerprintDto(null).fingerprint).toBeNull();
+  });
+});
+
 describe("M4 settings DTO", () => {
   it("parses video settings and the restart flag", () => {
     expect(
       parseSettingsDto({
         video: { maxSize: 1280, maxFps: 30, bitRate: 4_000_000 },
         restartRequired: true,
+        onboardingSeen: true,
       }),
     ).toEqual({
       video: { maxSize: 1280, maxFps: 30, bitRate: 4_000_000 },
       restartRequired: true,
+      onboardingSeen: true,
     });
   });
 

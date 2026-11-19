@@ -251,6 +251,7 @@ mod tests {
             capture,
             Arc::new(RecordingService::new(Box::new(Mp4Recorder::new()))),
             crate::test_support::settings_service(),
+            crate::test_support::fingerprint_source(),
         );
 
         Harness { state, opens }

@@ -66,6 +66,15 @@ impl From<VideoConfig> for VideoSettingsDto {
 pub struct SettingsDto {
     pub video: VideoSettingsDto,
     pub restart_required: bool,
+    pub onboarding_seen: bool,
+}
+
+/// M4 onboarding: the real ADB RSA fingerprint, or a safe error message.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RsaFingerprintDto {
+    pub fingerprint: Option<String>,
+    pub error: Option<String>,
 }
 
 /// Result of `capture_screenshot`. Width and height are the native ones read

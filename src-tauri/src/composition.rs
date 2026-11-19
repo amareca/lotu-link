@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use lotu_adapters::adb::SystemAdb;
+use lotu_adapters::adb::{AdbFingerprintSource, SystemAdb};
 use lotu_adapters::media::{AdbScreenshotCapture, Mp4Recorder};
 use lotu_adapters::platform;
 use lotu_adapters::scrcpy::ScrcpyVideoSource;
-use lotu_app::ports::{DeviceCatalog, ScreenshotCapture, VideoSource};
+use lotu_app::ports::{DeviceCatalog, FingerprintSource, ScreenshotCapture, VideoSource};
 use lotu_app::services::{DeviceService, RecordingService, SessionService, SettingsService};
 
 use crate::settings_store::FileSettingsStore;
@@ -32,6 +32,8 @@ pub fn build_app_state(config_dir: PathBuf) -> AppState {
     let settings = Arc::new(SettingsService::new(Box::new(FileSettingsStore::new(
         config_dir,
     ))));
+    let fingerprint: Arc<dyn FingerprintSource> =
+        Arc::new(AdbFingerprintSource::new(Arc::clone(&adb)));
 
     AppState::new(
         DeviceService::new(Arc::clone(&catalog)),
@@ -39,5 +41,6 @@ pub fn build_app_state(config_dir: PathBuf) -> AppState {
         capture,
         recording,
         settings,
+        fingerprint,
     )
 }

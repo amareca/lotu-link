@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use lotu_app::dto::DeviceDto;
-use lotu_app::ports::{InputSink, ScreenshotCapture};
+use lotu_app::ports::{FingerprintSource, InputSink, ScreenshotCapture};
 use lotu_app::services::{DeviceService, RecordingService, SessionService, SettingsService};
 use tauri::async_runtime::JoinHandle;
 use tokio::time::timeout;
@@ -42,6 +42,8 @@ pub struct AppState {
     pub recording: Arc<RecordingService>,
     /// M4: persisted video settings.
     pub settings: Arc<SettingsService>,
+    /// M4: real ADB RSA fingerprint for the authorization dialog.
+    pub fingerprint: Arc<dyn FingerprintSource>,
     replay: Mutex<Option<ReplayHandle>>,
     session: Mutex<Option<SessionHandle>>,
 }
@@ -53,6 +55,7 @@ impl AppState {
         capture: Arc<dyn ScreenshotCapture>,
         recording: Arc<RecordingService>,
         settings: Arc<SettingsService>,
+        fingerprint: Arc<dyn FingerprintSource>,
     ) -> Self {
         Self {
             devices,
@@ -60,6 +63,7 @@ impl AppState {
             capture,
             recording,
             settings,
+            fingerprint,
             replay: Mutex::new(None),
             session: Mutex::new(None),
         }

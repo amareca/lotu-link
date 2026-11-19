@@ -9,6 +9,7 @@ import { StreamClient } from "./lib/models/media/streamClient";
 import { WebCodecsSink } from "./lib/models/media/webCodecsSink";
 import { AppViewModel } from "./lib/viewmodels/AppViewModel.svelte";
 import { DevicesViewModel } from "./lib/viewmodels/DevicesViewModel.svelte";
+import { OnboardingViewModel } from "./lib/viewmodels/OnboardingViewModel.svelte";
 import { SettingsViewModel } from "./lib/viewmodels/SettingsViewModel.svelte";
 import {
   SessionViewModel,
@@ -34,6 +35,7 @@ const app = new AppViewModel();
 const devices = new DevicesViewModel(api);
 const session = new SessionViewModel(api, media);
 const settings = new SettingsViewModel(api);
+const onboarding = new OnboardingViewModel(api);
 
 const target = document.getElementById("app");
 if (target === null) {
@@ -42,5 +44,5 @@ if (target === null) {
 
 mount(App, {
   target,
-  props: { app, devices, session, settings },
+  props: { app, devices, session, settings, onboarding },
 });

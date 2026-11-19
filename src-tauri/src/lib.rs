@@ -43,7 +43,9 @@ pub fn run() {
             commands::capture::stop_recording,
             commands::capture::recording_state,
             commands::settings::get_settings,
-            commands::settings::save_settings
+            commands::settings::save_settings,
+            commands::settings::mark_onboarding_seen,
+            commands::onboarding::get_rsa_fingerprint
         ])
         .build(tauri::generate_context!())
     {

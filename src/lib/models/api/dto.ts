@@ -65,6 +65,20 @@ export interface VideoSettingsDto {
 export interface SettingsDto {
   video: VideoSettingsDto;
   restartRequired: boolean;
+  onboardingSeen: boolean;
+}
+
+/** M4 onboarding: the real ADB RSA fingerprint, or a safe failure reason. */
+export interface RsaFingerprintDto {
+  fingerprint: string | null;
+  error: string | null;
+}
+
+export function parseRsaFingerprintDto(value: unknown): RsaFingerprintDto {
+  if (!isRecord(value)) return { fingerprint: null, error: "Respuesta no válida" };
+  const fingerprint = typeof value.fingerprint === "string" ? value.fingerprint : null;
+  const error = typeof value.error === "string" ? value.error : null;
+  return { fingerprint, error };
 }
 
 export function parseSettingsDto(value: unknown): SettingsDto {
@@ -84,6 +98,7 @@ export function parseSettingsDto(value: unknown): SettingsDto {
   return {
     video: { maxSize, maxFps, bitRate },
     restartRequired: value.restartRequired === true,
+    onboardingSeen: value.onboardingSeen === true,
   };
 }
 

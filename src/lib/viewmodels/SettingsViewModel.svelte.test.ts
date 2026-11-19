@@ -8,6 +8,7 @@ describe("SettingsViewModel", () => {
       settings: {
         video: { maxSize: 1280, maxFps: 30, bitRate: 4_000_000 },
         restartRequired: false,
+        onboardingSeen: false,
       },
     });
     const settings = new SettingsViewModel(api);
@@ -40,6 +41,17 @@ describe("SettingsViewModel", () => {
       bitRate: 4_500_000,
     });
     expect(settings.dirty).toBe(false);
+  });
+
+  it("marks onboarding as seen through the backend", async () => {
+    const api = new FakeApi();
+    const settings = new SettingsViewModel(api);
+    await settings.load();
+    expect(settings.onboardingSeen).toBe(false);
+
+    await settings.markSeen();
+    expect(api.markSeenCalls).toBe(1);
+    expect(settings.onboardingSeen).toBe(true);
   });
 
   it("keeps the draft on a failed save", async () => {

@@ -305,10 +305,21 @@ describe("SessionViewModel", () => {
       getSettings: async () => ({
         video: { maxSize: 0, maxFps: 60, bitRate: 8_000_000 },
         restartRequired: false,
+        onboardingSeen: false,
       }),
       saveSettings: async (video) => ({
         video,
         restartRequired: false,
+        onboardingSeen: false,
+      }),
+      markOnboardingSeen: async () => ({
+        video: { maxSize: 0, maxFps: 60, bitRate: 8_000_000 },
+        restartRequired: false,
+        onboardingSeen: true,
+      }),
+      getRsaFingerprint: async () => ({
+        fingerprint: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99",
+        error: null,
       }),
     };
     const media = createMedia();

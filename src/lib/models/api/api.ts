@@ -10,6 +10,7 @@ import type {
   ScreenshotDto,
   ScrollInput,
   SessionDto,
+  RsaFingerprintDto,
   SettingsDto,
   VideoSettingsDto,
 } from "./dto";
@@ -47,6 +48,9 @@ export interface LotuApi {
   /** M4: persisted video settings. */
   getSettings(): Promise<SettingsDto>;
   saveSettings(video: VideoSettingsDto): Promise<SettingsDto>;
+  markOnboardingSeen(): Promise<SettingsDto>;
+  /** M4: real ADB RSA fingerprint shown in the authorization dialog. */
+  getRsaFingerprint(): Promise<RsaFingerprintDto>;
 }
 
 /** UI-facing error. Keeps the Rust `ErrorDto` available for localization by `code`. */

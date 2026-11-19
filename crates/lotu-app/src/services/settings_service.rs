@@ -39,10 +39,24 @@ impl SettingsService {
 
     /// Validates, persists and installs the new snapshot.
     pub fn save(&self, video: VideoConfig) -> Result<SettingsData, SettingsError> {
-        let next = SettingsData { video };
+        let mut next = *self.lock();
+        next.video = video;
         self.store.save(&next)?;
         *self.lock() = next;
         Ok(next)
+    }
+
+    /// Marks the onboarding help as seen without touching video settings.
+    pub fn mark_onboarding_seen(&self) -> Result<SettingsData, SettingsError> {
+        let mut next = *self.lock();
+        next.onboarding_seen = true;
+        self.store.save(&next)?;
+        *self.lock() = next;
+        Ok(next)
+    }
+
+    pub fn onboarding_seen(&self) -> bool {
+        self.lock().onboarding_seen
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, SettingsData> {
@@ -85,6 +99,7 @@ mod tests {
         let store = Box::new(FakeStore {
             data: Mutex::new(SettingsData {
                 video: VideoConfig::new(1280, 30, 4_000_000).expect("valid"),
+                onboarding_seen: false,
             }),
             ..FakeStore::default()
         });
@@ -103,6 +118,17 @@ mod tests {
         };
         let service = SettingsService::new(Box::new(store));
         assert_eq!(service.video_config(), VideoConfig::default());
+    }
+
+    #[test]
+    fn marks_onboarding_without_changing_video() {
+        let store = Box::new(FakeStore::default());
+        let service = SettingsService::new(store);
+        let before = service.video_config();
+
+        service.mark_onboarding_seen().expect("mark seen");
+        assert!(service.onboarding_seen());
+        assert_eq!(service.video_config(), before);
     }
 
     #[test]

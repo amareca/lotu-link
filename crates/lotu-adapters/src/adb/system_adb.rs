@@ -171,6 +171,16 @@ impl SystemAdb {
             .await
     }
 
+    /// `adb pubkey <private key>`: the ADB public key in its mincrypt Base64
+    /// form, followed by a comment. Modern ADB derives it from the private key
+    /// instead of reading `adbkey.pub`.
+    pub async fn pubkey(&self, key: &Path) -> Result<String, CatalogError> {
+        let args = [OsString::from("pubkey"), key.as_os_str().to_os_string()];
+        self.run_with_timeout(None, args, ADB_COMMAND_TIMEOUT)
+            .await
+            .map_err(CatalogError::from)
+    }
+
     /// `adb exec-out screencap -p`: raw PNG bytes on stdout, at native resolution.
     ///
     /// `exec-out` is intentional: unlike `shell`, it does not allocate a PTY on

@@ -3,7 +3,10 @@
 use std::sync::{Arc, Mutex};
 
 use lotu_adapters::media::Mp4Recorder;
-use lotu_app::ports::{ScreenshotCapture, SettingsData, SettingsError, SettingsStore};
+use lotu_app::ports::{
+    FingerprintError, FingerprintSource, ScreenshotCapture, SettingsData, SettingsError,
+    SettingsStore,
+};
 use lotu_app::services::{DeviceService, RecordingService, SessionService, SettingsService};
 
 use crate::state::AppState;
@@ -40,6 +43,10 @@ impl ScreenshotCapture for NoCapture {
     }
 }
 
+pub fn fingerprint_source() -> Arc<dyn FingerprintSource> {
+    Arc::new(NoFingerprint)
+}
+
 /// A settings service backed by memory, for tests that provide their own
 /// catalog/video doubles.
 pub fn settings_service() -> Arc<SettingsService> {
@@ -62,7 +69,17 @@ pub fn app_state() -> AppState {
         capture,
         recording,
         settings,
+        fingerprint_source(),
     )
+}
+
+struct NoFingerprint;
+
+#[async_trait::async_trait]
+impl FingerprintSource for NoFingerprint {
+    async fn current(&self) -> Result<String, FingerprintError> {
+        Ok("AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99".to_owned())
+    }
 }
 
 struct EmptyCatalog;

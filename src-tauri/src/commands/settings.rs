@@ -27,13 +27,29 @@ fn save_impl(video: VideoSettingsDto, state: &AppState) -> Result<SettingsDto, E
     Ok(SettingsDto {
         video: data.video.into(),
         restart_required: state.session_serial().is_some(),
+        onboarding_seen: data.onboarding_seen,
     })
 }
 
+#[tauri::command]
+pub fn mark_onboarding_seen(state: State<'_, AppState>) -> Result<SettingsDto, ErrorDto> {
+    let data = state
+        .settings
+        .mark_onboarding_seen()
+        .map_err(ErrorDto::from)?;
+    Ok(snapshot_with(&data, false))
+}
+
 fn snapshot(state: &AppState) -> SettingsDto {
+    let data = state.settings.get();
+    snapshot_with(&data, false)
+}
+
+fn snapshot_with(data: &lotu_app::ports::SettingsData, restart_required: bool) -> SettingsDto {
     SettingsDto {
-        video: state.settings.video_config().into(),
-        restart_required: false,
+        video: data.video.into(),
+        restart_required,
+        onboarding_seen: data.onboarding_seen,
     }
 }
 

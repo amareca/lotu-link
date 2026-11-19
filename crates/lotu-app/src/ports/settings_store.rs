@@ -6,6 +6,8 @@ use lotu_domain::VideoConfig;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SettingsData {
     pub video: VideoConfig,
+    /// Whether the USB authorization help has already been shown.
+    pub onboarding_seen: bool,
 }
 
 /// Failure of the local settings store.

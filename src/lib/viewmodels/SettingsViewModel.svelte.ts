@@ -20,6 +20,7 @@ export class SettingsViewModel {
   saved = $state<VideoSettingsDto>({ ...DEFAULTS });
   draft = $state<VideoSettingsDto>({ ...DEFAULTS });
   restartRequired = $state(false);
+  onboardingSeen = $state(false);
   notice = $state<ErrorDto | null>(null);
   loading = $state(false);
 
@@ -59,6 +60,15 @@ export class SettingsViewModel {
     }
   }
 
+  /** Marks the help as seen; only the backend persists the flag. */
+  async markSeen(): Promise<void> {
+    try {
+      this.#apply(await this.#api.markOnboardingSeen());
+    } catch (cause) {
+      this.notice = errorFrom(cause);
+    }
+  }
+
   reset(): void {
     this.draft = { ...this.saved };
     this.notice = null;
@@ -80,6 +90,7 @@ export class SettingsViewModel {
     this.saved = { ...snapshot.video };
     this.draft = { ...snapshot.video };
     this.restartRequired = snapshot.restartRequired;
+    this.onboardingSeen = snapshot.onboardingSeen;
   }
 }
 
