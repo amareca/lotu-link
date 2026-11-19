@@ -9,14 +9,16 @@
   import type { AppViewModel } from "./lib/viewmodels/AppViewModel.svelte";
   import type { DevicesViewModel } from "./lib/viewmodels/DevicesViewModel.svelte";
   import type { SessionViewModel } from "./lib/viewmodels/SessionViewModel.svelte";
+  import type { SettingsViewModel } from "./lib/viewmodels/SettingsViewModel.svelte";
 
   interface Props {
     app: AppViewModel;
     devices: DevicesViewModel;
     session: SessionViewModel;
+    settings: SettingsViewModel;
   }
 
-  let { app, devices, session }: Props = $props();
+  let { app, devices, session, settings }: Props = $props();
 
   const MIN_WIDTH = 400;
   const MIN_HEIGHT = 640;
@@ -58,6 +60,25 @@
       void devices.refresh();
     }
   });
+
+  $effect(() => {
+    if (app.drawer === "settings") {
+      void settings.load();
+    }
+  });
+
+  async function saveSettings(): Promise<void> {
+    const saved = await settings.save();
+    if (!saved) {
+      session.showToast("No se pudieron guardar los ajustes.");
+      return;
+    }
+    session.showToast(
+      settings.restartRequired
+        ? "Ajustes guardados. Se aplicarán al reconectar."
+        : "Ajustes guardados.",
+    );
+  }
 
   function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
@@ -191,8 +212,12 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#snippet settingsFooter()}
-  <button class="btn ghost" type="button" disabled>Cancelar</button>
-  <button class="btn primary" type="button" disabled>Guardar</button>
+  <button class="btn ghost" type="button" disabled={!settings.dirty} onclick={() => settings.reset()}>
+    Cancelar
+  </button>
+  <button class="btn primary" type="button" disabled={!settings.dirty} onclick={() => void saveSettings()}>
+    Guardar
+  </button>
 {/snippet}
 
 {#snippet devicesFooter()}
@@ -231,7 +256,7 @@
       onClose={closeDrawer}
       footer={settingsFooter}
     >
-      <SettingsView />
+      <SettingsView {settings} />
     </Drawer>
   </div>
 

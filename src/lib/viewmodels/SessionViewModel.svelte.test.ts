@@ -287,9 +287,29 @@ describe("SessionViewModel", () => {
       pasteText: async () => {},
       copyText: async () => "",
       captureScreenshot: async () => ({ path: "capture.png", width: 1080, height: 2400 }),
-      startRecording: async () => ({ path: "clip.mp4", frames: 0, durationUs: 0 }),
-      stopRecording: async () => ({ path: "clip.mp4", frames: 1, durationUs: 16_000 }),
+      startRecording: async () => ({
+        path: "clip.mp4",
+        frames: 0,
+        durationUs: 0,
+        segments: 1,
+        paths: ["clip.mp4"],
+      }),
+      stopRecording: async () => ({
+        path: "clip.mp4",
+        frames: 1,
+        durationUs: 16_000,
+        segments: 1,
+        paths: ["clip.mp4"],
+      }),
       onRecordingState: () => () => {},
+      getSettings: async () => ({
+        video: { maxSize: 0, maxFps: 60, bitRate: 8_000_000 },
+        restartRequired: false,
+      }),
+      saveSettings: async (video) => ({
+        video,
+        restartRequired: false,
+      }),
     };
     const media = createMedia();
     const session = new SessionViewModel(api, media.factory);

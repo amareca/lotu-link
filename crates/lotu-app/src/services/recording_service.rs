@@ -87,6 +87,13 @@ impl RecordingService {
         let mut state = self.lock()?;
         if matches!(message, StreamMessage::Config { .. }) {
             state.last_config = Some(message.clone());
+            if state.active {
+                // The recorder may rotate to a new segment when the frame size
+                // changes; after any config a fresh IDR is required again.
+                state.awaiting_keyframe = true;
+                return self.recorder.write(message);
+            }
+            return Ok(());
         }
         if !state.active {
             return Ok(());
@@ -197,6 +204,8 @@ mod tests {
             Ok(RecordingStats {
                 frames: 1,
                 duration_us: 16_000,
+                segments: 1,
+                paths: vec![PathBuf::from("clip.mp4")],
             })
         }
 

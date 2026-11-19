@@ -1,4 +1,4 @@
-use lotu_domain::{Device, DeviceState, Resolution};
+use lotu_domain::{Device, DeviceState, Resolution, VideoConfig};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// Wire representation of a device sent to the frontend.
@@ -41,6 +41,33 @@ pub struct SessionDto {
 /// identical, so it is the same type.
 pub type ReplaySessionDto = SessionDto;
 
+/// M4: video settings as stored and as accepted by `save_settings`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoSettingsDto {
+    pub max_size: u32,
+    pub max_fps: u32,
+    pub bit_rate: u32,
+}
+
+impl From<VideoConfig> for VideoSettingsDto {
+    fn from(config: VideoConfig) -> Self {
+        Self {
+            max_size: config.max_size,
+            max_fps: config.max_fps,
+            bit_rate: config.bit_rate,
+        }
+    }
+}
+
+/// M4: full settings payload. `restartRequired` is computed from the active session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsDto {
+    pub video: VideoSettingsDto,
+    pub restart_required: bool,
+}
+
 /// Result of `capture_screenshot`. Width and height are the native ones read
 /// from the PNG, not the dimensions of the streamed video (`docs/adr/0001`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -58,6 +85,10 @@ pub struct RecordingDto {
     pub path: String,
     pub frames: u64,
     pub duration_us: u64,
+    /// More than one when the device rotated during the recording.
+    pub segments: u32,
+    /// Every produced MP4, in order.
+    pub paths: Vec<String>,
 }
 
 /// Snapshot of the single recording slot, sent as a Tauri event.

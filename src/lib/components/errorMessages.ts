@@ -28,6 +28,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   recording_failed: "No se pudo guardar la grabación.",
   user_cancelled: "Cancelado.",
   io_failed: "No se pudo escribir el archivo.",
+  settings_invalid: "Los ajustes no son válidos.",
+  settings_io: "No se pudieron guardar los ajustes.",
   internal: "Error interno.",
 };
 

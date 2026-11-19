@@ -576,7 +576,11 @@ export class SessionViewModel {
       if (this.#isCurrent(this.#generation)) {
         this.captureNotice = null;
         this.#applyRecordingState({ active: false, path: result.path });
-        this.showToast("Grabación guardada.");
+        this.showToast(
+          result.segments > 1
+            ? `Grabación guardada en ${result.segments} archivos.`
+            : "Grabación guardada.",
+        );
       }
       return result;
     } catch (cause) {

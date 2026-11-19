@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use lotu_app::dto::DeviceDto;
 use lotu_app::ports::{InputSink, ScreenshotCapture};
-use lotu_app::services::{DeviceService, RecordingService, SessionService};
+use lotu_app::services::{DeviceService, RecordingService, SessionService, SettingsService};
 use tauri::async_runtime::JoinHandle;
 use tokio::time::timeout;
 
@@ -40,6 +40,8 @@ pub struct AppState {
     pub capture: Arc<dyn ScreenshotCapture>,
     /// M3: the single recording slot and its frame tap.
     pub recording: Arc<RecordingService>,
+    /// M4: persisted video settings.
+    pub settings: Arc<SettingsService>,
     replay: Mutex<Option<ReplayHandle>>,
     session: Mutex<Option<SessionHandle>>,
 }
@@ -50,12 +52,14 @@ impl AppState {
         session_service: SessionService,
         capture: Arc<dyn ScreenshotCapture>,
         recording: Arc<RecordingService>,
+        settings: Arc<SettingsService>,
     ) -> Self {
         Self {
             devices,
             session_service,
             capture,
             recording,
+            settings,
             replay: Mutex::new(None),
             session: Mutex::new(None),
         }

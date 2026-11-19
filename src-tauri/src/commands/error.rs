@@ -1,6 +1,6 @@
 use lotu_adapters::replay::FixtureError;
 use lotu_app::ports::device_catalog::CatalogError;
-use lotu_app::ports::{CaptureError, InputError, RecordingError, SessionError};
+use lotu_app::ports::{CaptureError, InputError, RecordingError, SessionError, SettingsError};
 use serde::Serialize;
 
 /// Stable error codes consumed by the frontend.
@@ -28,6 +28,8 @@ pub enum ErrorCode {
     RecordingFailed,
     UserCancelled,
     IoFailed,
+    SettingsInvalid,
+    SettingsIo,
     Internal,
 }
 
@@ -122,6 +124,16 @@ impl From<RecordingError> for ErrorDto {
     }
 }
 
+/// Settings persistence failures of M4.
+impl From<SettingsError> for ErrorDto {
+    fn from(error: SettingsError) -> Self {
+        match error {
+            SettingsError::Invalid(_) => Self::new(ErrorCode::SettingsInvalid, error.to_string()),
+            SettingsError::Io(_) => Self::new(ErrorCode::SettingsIo, error.to_string()),
+        }
+    }
+}
+
 /// Every fixture problem (missing file, bad container, bad metadata) is a
 /// development-time configuration error with a single stable code.
 impl From<FixtureError> for ErrorDto {
@@ -180,6 +192,8 @@ mod tests {
             (ErrorCode::RecordingFailed, "recording_failed"),
             (ErrorCode::UserCancelled, "user_cancelled"),
             (ErrorCode::IoFailed, "io_failed"),
+            (ErrorCode::SettingsInvalid, "settings_invalid"),
+            (ErrorCode::SettingsIo, "settings_io"),
             (ErrorCode::Internal, "internal"),
         ];
 

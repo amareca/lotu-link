@@ -7,6 +7,7 @@ import {
   parseReplaySessionDto,
   parseScreenshotDto,
   parseSessionDto,
+  parseSettingsDto,
   toErrorDto,
   type DeviceDto,
   type SessionDto,
@@ -220,10 +221,20 @@ describe("M3 capture and recording DTOs", () => {
   });
 
   it("parses recording statistics and state", () => {
-    expect(parseRecordingDto({ path: "clip.mp4", frames: 120, durationUs: 4_000_000 })).toEqual({
+    expect(
+      parseRecordingDto({
+        path: "clip.mp4",
+        frames: 120,
+        durationUs: 4_000_000,
+        segments: 2,
+        paths: ["clip.mp4", "clip-2.mp4"],
+      }),
+    ).toEqual({
       path: "clip.mp4",
       frames: 120,
       durationUs: 4_000_000,
+      segments: 2,
+      paths: ["clip.mp4", "clip-2.mp4"],
     });
     expect(() =>
       parseRecordingDto({ path: "clip.mp4", frames: -1, durationUs: 0 }),
@@ -249,6 +260,32 @@ describe("M3 capture and recording DTOs", () => {
     for (const code of codes) {
       expect(toErrorDto({ code, message: "diagnostic" }).code).toBe(code);
     }
+  });
+});
+
+describe("M4 settings DTO", () => {
+  it("parses video settings and the restart flag", () => {
+    expect(
+      parseSettingsDto({
+        video: { maxSize: 1280, maxFps: 30, bitRate: 4_000_000 },
+        restartRequired: true,
+      }),
+    ).toEqual({
+      video: { maxSize: 1280, maxFps: 30, bitRate: 4_000_000 },
+      restartRequired: true,
+    });
+  });
+
+  it("rejects out-of-range values", () => {
+    const base = { video: { maxSize: 0, maxFps: 60, bitRate: 8_000_000 } };
+    expect(() => parseSettingsDto({ ...base, video: { ...base.video, bitRate: 0 } })).toThrow();
+    expect(() => parseSettingsDto({ ...base, video: { ...base.video, maxSize: 9000 } })).toThrow();
+    expect(() => parseSettingsDto({ ...base, video: { ...base.video, maxFps: 241 } })).toThrow();
+  });
+
+  it("accepts the settings error codes", () => {
+    expect(toErrorDto({ code: "settings_invalid", message: "x" }).code).toBe("settings_invalid");
+    expect(toErrorDto({ code: "settings_io", message: "x" }).code).toBe("settings_io");
   });
 });
 

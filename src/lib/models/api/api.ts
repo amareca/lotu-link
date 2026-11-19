@@ -10,6 +10,8 @@ import type {
   ScreenshotDto,
   ScrollInput,
   SessionDto,
+  SettingsDto,
+  VideoSettingsDto,
 } from "./dto";
 
 /**
@@ -42,6 +44,9 @@ export interface LotuApi {
   stopRecording(): Promise<RecordingDto>;
   /** M3: backend-driven state, also emitted on session stop. */
   onRecordingState(listener: (state: RecordingStateDto) => void): () => void;
+  /** M4: persisted video settings. */
+  getSettings(): Promise<SettingsDto>;
+  saveSettings(video: VideoSettingsDto): Promise<SettingsDto>;
 }
 
 /** UI-facing error. Keeps the Rust `ErrorDto` available for localization by `code`. */

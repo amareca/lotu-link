@@ -96,15 +96,13 @@ pub fn forward_command_line(port: u16, scid: u32) -> String {
     format!("adb {}", forward_args(port, scid).join(" "))
 }
 
-/// Options of `com.genymobile.scrcpy.Server`, exactly as fixed by the contract.
+/// Options of `com.genymobile.scrcpy.Server`.
 ///
 /// `audio=false` and `tunnel_forward=true` are explicit because the server
 /// defaults differ (`audio=true`, reverse tunnel). `clipboard_autosync=false`
-/// keeps the control socket silent in M1. Values that the server defaults to
-/// the contract's choice (`send_dummy_byte`, `send_device_meta`,
-/// `send_stream_meta`, `send_frame_meta`, `cleanup`, `power_on`,
-/// `downsize_on_error`, orientation unlocked) are not passed.
-pub fn server_options(scid: u32) -> Vec<String> {
+/// keeps the control socket silent. Video size, frame rate and bit rate come
+/// from the M4 settings; the rest keep the M1 contract values.
+pub fn server_options(scid: u32, config: &VideoConfig) -> Vec<String> {
     vec![
         format!("scid={}", scid_hex(scid)),
         String::from("tunnel_forward=true"),
@@ -113,16 +111,16 @@ pub fn server_options(scid: u32) -> Vec<String> {
         String::from("control=true"),
         String::from("video_codec=h264"),
         String::from("log_level=warn"),
-        String::from("max_size=0"),
-        String::from("max_fps=60"),
-        String::from("video_bit_rate=8000000"),
+        format!("max_size={}", config.max_size),
+        format!("max_fps={}", config.max_fps),
+        format!("video_bit_rate={}", config.bit_rate),
         String::from("clipboard_autosync=false"),
     ]
 }
 
 /// Arguments that follow `adb shell` to launch the server:
 /// `CLASSPATH=<jar> app_process / <class> <version> <options...>`.
-pub fn app_process_args(scid: u32) -> Vec<String> {
+pub fn app_process_args(scid: u32, config: &VideoConfig) -> Vec<String> {
     let mut args = vec![
         format!("CLASSPATH={SERVER_REMOTE_JAR}"),
         String::from("app_process"),
@@ -130,7 +128,7 @@ pub fn app_process_args(scid: u32) -> Vec<String> {
         String::from(SERVER_CLASS),
         String::from(SERVER_VERSION),
     ];
-    args.extend(server_options(scid));
+    args.extend(server_options(scid, config));
     args
 }
 
@@ -174,11 +172,9 @@ impl ScrcpyVideoSource {
     async fn open_session(
         &self,
         serial: &Serial,
-        _config: &VideoConfig,
+        config: &VideoConfig,
     ) -> Result<LiveStream, SessionError> {
-        // M1 pins the server options to the contract values (max_size=0,
-        // max_fps=60, 8 Mbps), which match `VideoConfig::default()`; the port
-        // already hands the configuration over for M2.
+        // M4 passes the persisted video settings through to the server.
         let jar = require_scrcpy_server(&self.server_jar)
             .map_err(|error| SessionError::VendorMissing(error.to_string()))?;
 
@@ -220,7 +216,10 @@ impl ScrcpyVideoSource {
             SessionResources::new(Arc::clone(&self.adb), serial.clone(), Some(port));
 
         // 4. Server process.
-        let child = match self.adb.spawn_server(serial, &app_process_args(scid)) {
+        let child = match self
+            .adb
+            .spawn_server(serial, &app_process_args(scid, config))
+        {
             Ok(child) => child,
             Err(error) => {
                 resources.cleanup().await;
@@ -568,7 +567,7 @@ mod tests {
     #[test]
     fn server_options_match_the_contract() {
         assert_eq!(
-            server_options(SCID),
+            server_options(SCID, &VideoConfig::default()),
             [
                 "scid=00abcdef",
                 "tunnel_forward=true",
@@ -586,9 +585,18 @@ mod tests {
     }
 
     #[test]
+    fn server_options_use_the_persisted_video_settings() {
+        let config = VideoConfig::new(1280, 30, 4_000_000).expect("valid config");
+        let options = server_options(SCID, &config);
+        assert!(options.contains(&"max_size=1280".to_owned()));
+        assert!(options.contains(&"max_fps=30".to_owned()));
+        assert!(options.contains(&"video_bit_rate=4000000".to_owned()));
+    }
+
+    #[test]
     fn app_process_args_match_the_contract() {
         assert_eq!(
-            app_process_args(SCID),
+            app_process_args(SCID, &VideoConfig::default()),
             [
                 "CLASSPATH=/data/local/tmp/lotu-link-server.jar",
                 "app_process",

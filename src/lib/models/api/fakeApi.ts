@@ -11,6 +11,8 @@ import type {
   ScreenshotDto,
   ScrollInput,
   SessionDto,
+  SettingsDto,
+  VideoSettingsDto,
 } from "./dto";
 
 /** Deterministic data used by `pnpm dev` without Tauri and by the ViewModel tests. */
@@ -72,6 +74,9 @@ export interface FakeApiOptions {
   /** M3: makes capture/recording commands reject (tests only). */
   captureFailure?: ErrorDto | null;
   recordingFailure?: ErrorDto | null;
+  /** M4: initial settings returned by `getSettings` (tests only). */
+  settings?: SettingsDto | null;
+  settingsFailure?: ErrorDto | null;
 }
 
 export class FakeApi implements LotuApi {
@@ -96,6 +101,9 @@ export class FakeApi implements LotuApi {
   readonly #clipboardFailure: ErrorDto | null;
   readonly #captureFailure: ErrorDto | null;
   readonly #recordingFailure: ErrorDto | null;
+  readonly #settingsFailure: ErrorDto | null;
+  #settings: SettingsDto;
+  #saveSettingsCalls = 0;
   readonly #screenshotResult: ScreenshotDto;
   #captureCalls = 0;
   #startRecordingCalls = 0;
@@ -114,6 +122,11 @@ export class FakeApi implements LotuApi {
     this.#clipboardFailure = options.inputFailure ?? null;
     this.#captureFailure = options.captureFailure ?? null;
     this.#recordingFailure = options.recordingFailure ?? null;
+    this.#settingsFailure = options.settingsFailure ?? null;
+    this.#settings = options.settings ?? {
+      video: { maxSize: 0, maxFps: 60, bitRate: 8_000_000 },
+      restartRequired: false,
+    };
     this.#screenshotResult = options.screenshotResult ?? {
       path: "captures/lotu-capture.png",
       width: 1080,
@@ -189,6 +202,14 @@ export class FakeApi implements LotuApi {
 
   get stopRecordingCalls(): number {
     return this.#stopRecordingCalls;
+  }
+
+  get saveSettingsCalls(): number {
+    return this.#saveSettingsCalls;
+  }
+
+  get currentSettings(): SettingsDto {
+    return { ...this.#settings, video: { ...this.#settings.video } };
   }
 
   setInputFailure(failure: ErrorDto | null): void {
@@ -292,14 +313,43 @@ export class FakeApi implements LotuApi {
     this.#startRecordingCalls += 1;
     await this.#wait();
     if (this.#recordingFailure !== null) throw new ApiError(this.#recordingFailure);
-    return { path: "captures/lotu-recording.mp4", frames: 0, durationUs: 0 };
+    return {
+      path: "captures/lotu-recording.mp4",
+      frames: 0,
+      durationUs: 0,
+      segments: 1,
+      paths: ["captures/lotu-recording.mp4"],
+    };
   }
 
   async stopRecording(): Promise<RecordingDto> {
     this.#stopRecordingCalls += 1;
     await this.#wait();
     if (this.#recordingFailure !== null) throw new ApiError(this.#recordingFailure);
-    return { path: "captures/lotu-recording.mp4", frames: 120, durationUs: 4_000_000 };
+    return {
+      path: "captures/lotu-recording.mp4",
+      frames: 120,
+      durationUs: 4_000_000,
+      segments: 1,
+      paths: ["captures/lotu-recording.mp4"],
+    };
+  }
+
+  async getSettings(): Promise<SettingsDto> {
+    await this.#wait();
+    if (this.#settingsFailure !== null) throw new ApiError(this.#settingsFailure);
+    return this.currentSettings;
+  }
+
+  async saveSettings(video: VideoSettingsDto): Promise<SettingsDto> {
+    this.#saveSettingsCalls += 1;
+    await this.#wait();
+    if (this.#settingsFailure !== null) throw new ApiError(this.#settingsFailure);
+    if (video.bitRate <= 0 || video.maxSize > 8192 || video.maxFps > 240) {
+      throw new ApiError({ code: "settings_invalid", message: "invalid video settings" });
+    }
+    this.#settings = { video: { ...video }, restartRequired: false };
+    return this.currentSettings;
   }
 
   onRecordingState(_listener: (state: RecordingStateDto) => void): () => void {

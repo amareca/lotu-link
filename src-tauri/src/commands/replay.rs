@@ -166,6 +166,7 @@ mod tests {
             SessionService::new(catalog, video),
             capture,
             Arc::new(RecordingService::new(Box::new(Mp4Recorder::new()))),
+            crate::test_support::settings_service(),
         )
     }
 

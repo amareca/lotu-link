@@ -1,3 +1,14 @@
+<script lang="ts">
+  import { errorMessageForCode } from "../components/errorMessages";
+  import type { SettingsViewModel } from "../viewmodels/SettingsViewModel.svelte";
+
+  interface Props {
+    settings: SettingsViewModel;
+  }
+
+  let { settings }: Props = $props();
+</script>
+
 <div class="settings-view">
   <div class="group-label">Vídeo</div>
 
@@ -11,18 +22,40 @@
       role="radiogroup"
       aria-labelledby="settings-resolution"
     >
-      <button type="button" class="on" role="radio" aria-checked="true" disabled>
+      <button
+        type="button"
+        class:on={settings.draft.maxSize === 0}
+        role="radio"
+        aria-checked={settings.draft.maxSize === 0}
+        onclick={() => settings.setResolution(0)}
+      >
         Nativa
       </button>
-      <button type="button" role="radio" aria-checked="false" disabled>1920</button>
-      <button type="button" role="radio" aria-checked="false" disabled>1280</button>
+      <button
+        type="button"
+        class:on={settings.draft.maxSize === 1920}
+        role="radio"
+        aria-checked={settings.draft.maxSize === 1920}
+        onclick={() => settings.setResolution(1920)}
+      >
+        1920
+      </button>
+      <button
+        type="button"
+        class:on={settings.draft.maxSize === 1280}
+        role="radio"
+        aria-checked={settings.draft.maxSize === 1280}
+        onclick={() => settings.setResolution(1280)}
+      >
+        1280
+      </button>
     </div>
   </div>
 
   <div class="field">
     <div class="field-row">
       <label for="settings-bitrate" class="field-label">Bitrate</label>
-      <span class="value">8.0 Mbps</span>
+      <span class="value">{(settings.draft.bitRate / 1_000_000).toFixed(1)} Mbps</span>
     </div>
     <input
       id="settings-bitrate"
@@ -30,9 +63,9 @@
       min="2"
       max="20"
       step="0.5"
-      value="8"
+      value={settings.draft.bitRate / 1_000_000}
       aria-label="Bitrate en Mbps"
-      disabled
+      oninput={(event) => settings.setBitrate(event.currentTarget.valueAsNumber)}
     />
   </div>
 
@@ -42,8 +75,22 @@
       <span class="hint-inline">máximos</span>
     </div>
     <div class="segmented" role="radiogroup" aria-labelledby="settings-fps">
-      <button type="button" role="radio" aria-checked="false" disabled>30</button>
-      <button type="button" class="on" role="radio" aria-checked="true" disabled>
+      <button
+        type="button"
+        class:on={settings.draft.maxFps === 30}
+        role="radio"
+        aria-checked={settings.draft.maxFps === 30}
+        onclick={() => settings.setFps(30)}
+      >
+        30
+      </button>
+      <button
+        type="button"
+        class:on={settings.draft.maxFps === 60}
+        role="radio"
+        aria-checked={settings.draft.maxFps === 60}
+        onclick={() => settings.setFps(60)}
+      >
         60
       </button>
     </div>
@@ -87,9 +134,12 @@
     </div>
   </div>
 
+  {#if settings.notice !== null}
+    <p class="error" role="status">{errorMessageForCode(settings.notice.code)}</p>
+  {/if}
   <p class="note">
-    Valores de referencia del MVP. Sin persistencia en M0; Guardar y Cancelar se
-    habilitan en M4.
+    Los cambios se guardan en este equipo. Con una sesión en curso se aplican al
+    reconectar.
   </p>
 </div>
 
@@ -243,6 +293,15 @@
     background: #0d1727;
     border: 1px solid var(--border-soft);
     white-space: nowrap;
+  }
+
+  .error {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: var(--danger);
+    background: var(--danger-soft);
   }
 
   .note {

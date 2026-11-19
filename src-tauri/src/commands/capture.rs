@@ -108,6 +108,8 @@ pub async fn start_recording(
         path: path_text(&path),
         frames: 0,
         duration_us: 0,
+        segments: 1,
+        paths: vec![path_text(&path)],
     })
 }
 
@@ -122,10 +124,21 @@ pub async fn stop_recording(
         .stop()?
         .ok_or_else(|| ErrorDto::new(ErrorCode::RecordingInactive, "no recording is active"))?;
     emit_recording_state(&app, &state);
+    let paths = if info.stats.paths.is_empty() {
+        vec![path_text(&info.path)]
+    } else {
+        info.stats
+            .paths
+            .iter()
+            .map(|path| path_text(path))
+            .collect()
+    };
     Ok(RecordingDto {
         path: path_text(&info.path),
         frames: info.stats.frames,
         duration_us: info.stats.duration_us,
+        segments: info.stats.segments.max(1),
+        paths,
     })
 }
 

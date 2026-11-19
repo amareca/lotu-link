@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use lotu_app::dto::SessionDto;
-use lotu_domain::{DeviceState, Serial, VideoConfig};
+use lotu_domain::{DeviceState, Serial};
 use tauri::State;
 
 use crate::commands::error::{ErrorCode, ErrorDto};
@@ -83,10 +83,11 @@ async fn start_session_impl(state: &AppState, raw_serial: &str) -> Result<Sessio
     state.abort_replay_and_wait().await;
     state.stop_session_and_wait().await;
 
-    // 4. Open the live stream (15 s budget inside the adapter).
+    // 4. Open the live stream with the persisted M4 video settings.
+    let config = state.settings.video_config();
     let live = state
         .session_service
-        .start(&serial, &VideoConfig::default())
+        .start(&serial, &config)
         .await
         .map_err(ErrorDto::from)?;
 
@@ -249,6 +250,7 @@ mod tests {
             SessionService::new(catalog, video),
             capture,
             Arc::new(RecordingService::new(Box::new(Mp4Recorder::new()))),
+            crate::test_support::settings_service(),
         );
 
         Harness { state, opens }

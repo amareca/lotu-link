@@ -37,6 +37,8 @@ export type ErrorCode =
   | "recording_failed"
   | "user_cancelled"
   | "io_failed"
+  | "settings_invalid"
+  | "settings_io"
   | "internal";
 
 export interface ErrorDto {
@@ -53,6 +55,38 @@ export interface SessionDto {
 /** M0b alias: the replay command returns the same payload as a live session. */
 export type ReplaySessionDto = SessionDto;
 
+/** M4: video settings persisted by `save_settings`. */
+export interface VideoSettingsDto {
+  maxSize: number;
+  maxFps: number;
+  bitRate: number;
+}
+
+export interface SettingsDto {
+  video: VideoSettingsDto;
+  restartRequired: boolean;
+}
+
+export function parseSettingsDto(value: unknown): SettingsDto {
+  if (!isRecord(value)) throw new Error("Invalid settings payload");
+  const video = value.video;
+  if (!isRecord(video)) throw new Error("Invalid settings payload: missing video");
+  const { maxSize, maxFps, bitRate } = video;
+  if (!isNonNegativeInt(maxSize) || maxSize > 8192) {
+    throw new Error("Invalid settings payload: bad maxSize");
+  }
+  if (!isNonNegativeInt(maxFps) || maxFps > 240) {
+    throw new Error("Invalid settings payload: bad maxFps");
+  }
+  if (!isNonNegativeInt(bitRate) || bitRate === 0) {
+    throw new Error("Invalid settings payload: bad bitRate");
+  }
+  return {
+    video: { maxSize, maxFps, bitRate },
+    restartRequired: value.restartRequired === true,
+  };
+}
+
 /** M3: a PNG saved by `capture_screenshot`. */
 export interface ScreenshotDto {
   path: string;
@@ -65,6 +99,8 @@ export interface RecordingDto {
   path: string;
   frames: number;
   durationUs: number;
+  segments: number;
+  paths: string[];
 }
 
 /** M3: snapshot pushed by the `recording-state` Tauri event. */
@@ -94,7 +130,11 @@ export function parseRecordingDto(value: unknown): RecordingDto {
   if (!isNonNegativeInt(frames) || !isNonNegativeInt(durationUs)) {
     throw new Error("Invalid recording payload: bad statistics");
   }
-  return { path, frames, durationUs };
+  const segments = isNonNegativeInt(value.segments) ? value.segments : 1;
+  const paths = Array.isArray(value.paths)
+    ? value.paths.filter((item): item is string => typeof item === "string")
+    : [path];
+  return { path, frames, durationUs, segments: Math.max(segments, 1), paths };
 }
 
 export function parseRecordingStateDto(value: unknown): RecordingStateDto {
@@ -169,6 +209,8 @@ const ERROR_CODES: readonly ErrorCode[] = [
   "recording_failed",
   "user_cancelled",
   "io_failed",
+  "settings_invalid",
+  "settings_io",
   "internal",
 ];
 

@@ -10,11 +10,15 @@ use std::path::PathBuf;
 use crate::ports::StreamMessage;
 
 /// Outcome of a finished recording.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RecordingStats {
     pub frames: u64,
     /// Wall-clock span of the recorded samples, in microseconds.
     pub duration_us: u64,
+    /// Number of MP4 files produced (more than one when the device rotates).
+    pub segments: u32,
+    /// Final paths, in order. Empty when the recording produced no frames.
+    pub paths: Vec<PathBuf>,
 }
 
 /// Failure modes of [`Recorder`].

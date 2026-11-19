@@ -91,6 +91,13 @@ impl<W: Write + Seek> Mp4Writer<W> {
         !self.avcc.is_empty()
     }
 
+    /// True when a new configuration changes the frame size of an already
+    /// started clip: an MP4 track has fixed dimensions, so the caller must
+    /// finalize this segment and open another one.
+    pub fn needs_new_segment(&self, width: u32, height: u32) -> bool {
+        !self.samples.is_empty() && (self.width != width || self.height != height)
+    }
+
     /// Appends one access unit and returns its wire size.
     pub fn write_frame(
         &mut self,
@@ -201,6 +208,9 @@ impl<W: Write + Seek> Mp4Writer<W> {
         Ok(RecordingStats {
             frames: self.samples.len() as u64,
             duration_us,
+            // Paths are known by the file-backed recorder, not by the writer.
+            segments: 1,
+            paths: Vec::new(),
         })
     }
 

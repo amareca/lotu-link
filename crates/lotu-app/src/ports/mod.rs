@@ -4,6 +4,7 @@ pub mod frame_source;
 pub mod input_sink;
 pub mod recorder;
 pub mod session_stream;
+pub mod settings_store;
 pub mod video_source;
 
 pub use capture::{CaptureError, PngImage, ScreenshotCapture};
@@ -14,4 +15,5 @@ pub use input_sink::{
 };
 pub use recorder::{Recorder, RecordingError, RecordingStats};
 pub use session_stream::SessionStream;
+pub use settings_store::{SettingsData, SettingsError, SettingsStore};
 pub use video_source::{LiveStream, SessionError, VideoSource};

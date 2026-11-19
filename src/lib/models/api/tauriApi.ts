@@ -8,6 +8,7 @@ import {
   parseReplaySessionDto,
   parseScreenshotDto,
   parseSessionDto,
+  parseSettingsDto,
   toErrorDto,
   type DeviceDto,
   type KeyAction,
@@ -19,6 +20,8 @@ import {
   type ScreenshotDto,
   type ScrollInput,
   type SessionDto,
+  type SettingsDto,
+  type VideoSettingsDto,
 } from "./dto";
 
 /**
@@ -116,6 +119,22 @@ export class TauriApi implements LotuApi {
   async stopRecording(): Promise<RecordingDto> {
     try {
       return parseRecordingDto(await invoke<unknown>("stop_recording"));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  async getSettings(): Promise<SettingsDto> {
+    try {
+      return parseSettingsDto(await invoke<unknown>("get_settings"));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  async saveSettings(video: VideoSettingsDto): Promise<SettingsDto> {
+    try {
+      return parseSettingsDto(await invoke<unknown>("save_settings", { video }));
     } catch (cause) {
       throw new ApiError(toErrorDto(cause));
     }
