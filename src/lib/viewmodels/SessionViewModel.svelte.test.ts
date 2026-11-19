@@ -691,23 +691,95 @@ describe("SessionViewModel live sessions", () => {
     session.dispose();
   });
 
-  it("maps an unexpected live stream close to session_failed", async () => {
+  it("reconnects a live stream and keeps waiting while the device is absent", async () => {
+    vi.useFakeTimers();
     const api = new FakeApi({ session: LIVE_SESSION });
     const media = createMedia();
     const session = new SessionViewModel(api, media.factory);
-    await session.startSession("PIXEL8PRO");
 
-    last(media.clients).serverClose(
-      new StreamError("closed", "Stream closed by the server (1006)"),
-    );
+    try {
+      await session.startSession("PIXEL8PRO");
+      const closed = new StreamError("closed", "Stream closed by the server (1006)");
 
-    expect(session.phase).toBe("error");
-    expect(session.origin).toBe("live");
-    expect(session.error?.code).toBe("session_failed");
-    expect(session.errorMessage).toBe("Stream closed by the server (1006)");
-    expect(last(media.sinks).disposed).toBe(true);
+      last(media.clients).serverClose(closed);
+      expect(session.phase).toBe("connecting");
+      expect(media.clients.length).toBe(1);
+      expect(session.toast).toContain("Reconectando");
 
-    session.dispose();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(media.clients.length).toBe(2);
+      last(media.clients).serverClose(closed);
+
+      await vi.advanceTimersByTimeAsync(700);
+      expect(media.clients.length).toBe(3);
+      last(media.clients).serverClose(closed);
+
+      await vi.advanceTimersByTimeAsync(1500);
+      expect(media.clients.length).toBe(4);
+      last(media.clients).serverClose(closed);
+      expect(session.toast).toContain("Esperando");
+
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(media.clients.length).toBe(5);
+      expect(session.phase).toBe("connecting");
+      expect(session.origin).toBe("live");
+
+      last(media.clients).emit(CONFIG);
+      last(media.clients).emit(FRAME);
+      expect(session.phase).toBe("streaming");
+    } finally {
+      vi.useRealTimers();
+      session.dispose();
+    }
+  });
+
+  it("keeps retrying when start_session fails during a reconnection", async () => {
+    vi.useFakeTimers();
+    const api = new FakeApi({ session: LIVE_SESSION });
+    const media = createMedia();
+    const session = new SessionViewModel(api, media.factory);
+
+    try {
+      await session.startSession("PIXEL8PRO");
+      last(media.clients).serverClose(new StreamError("closed", "closed"));
+
+      api.setSessionFailure({ code: "session_failed", message: "device still re-enumerating" });
+      await vi.advanceTimersByTimeAsync(300);
+      expect(session.phase).toBe("connecting");
+      expect(media.clients.length).toBe(1);
+
+      api.setSessionFailure(null);
+      await vi.advanceTimersByTimeAsync(700);
+      expect(media.clients.length).toBe(2);
+
+      last(media.clients).emit(CONFIG);
+      last(media.clients).emit(FRAME);
+      expect(session.phase).toBe("streaming");
+    } finally {
+      vi.useRealTimers();
+      session.dispose();
+    }
+  });
+
+  it("does not reconnect after the user stops the session", async () => {
+    vi.useFakeTimers();
+    const api = new FakeApi({ session: LIVE_SESSION });
+    const media = createMedia();
+    const session = new SessionViewModel(api, media.factory);
+
+    try {
+      await session.startSession("PIXEL8PRO");
+      last(media.clients).serverClose(new StreamError("closed", "closed"));
+      expect(session.phase).toBe("connecting");
+
+      session.stop();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(media.clients.length).toBe(1);
+      expect(session.phase).toBe("idle");
+    } finally {
+      vi.useRealTimers();
+      session.dispose();
+    }
   });
 
   it("keeps stream frames out of reactive state", async () => {

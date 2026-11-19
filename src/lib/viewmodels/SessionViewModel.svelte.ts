@@ -36,6 +36,11 @@ import type { VideoSink, VideoSinkHandlers } from "../models/media/webCodecsSink
 export type SessionPhase = "idle" | "connecting" | "streaming" | "error";
 export type SessionOrigin = "live" | "replay";
 
+/// M4: bounded exponential backoff for live stream disconnects.
+export const RECONNECT_DELAYS_MS = [300, 700, 1500] as const;
+/// Later retries while the device is still re-enumerating on USB.
+export const DEVICE_WAIT_INTERVAL_MS = 2000;
+
 /**
  * Media dependencies injected by the composition root (`main.ts`). Tests pass
  * fakes; the ViewModel never imports Tauri, WebSocket or WebCodecs.
@@ -127,6 +132,9 @@ export class SessionViewModel {
   #recordingTimer: ReturnType<typeof setInterval> | null = null;
   #recordingStartedAt = 0;
   #toastTimer: ReturnType<typeof setTimeout> | null = null;
+  #reconnectAttempts = 0;
+  #reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  #waitingForDevice = false;
 
   constructor(api: LotuApi, media: MediaFactory) {
     this.#api = api;
@@ -184,6 +192,8 @@ export class SessionViewModel {
     this.captureNotice = null;
     this.recording = null;
     this.#stopRecordingTimer();
+    this.#reconnectAttempts = 0;
+    this.#waitingForDevice = false;
     this.#cancelGesture();
 
     if (wasLive) {
@@ -216,6 +226,8 @@ export class SessionViewModel {
     this.captureNotice = null;
     this.recording = null;
     this.#stopRecordingTimer();
+    this.#reconnectAttempts = 0;
+    this.#waitingForDevice = false;
     this.#cancelGesture();
 
     if (wasLive) {
@@ -250,7 +262,11 @@ export class SessionViewModel {
   ): Promise<void> {
     if (this.#disposed) return;
 
-    this.stop();
+    // Drop the previous stream without resetting the reconnect budget: a
+    // retry is also a `startSession` call.
+    this.#generation += 1;
+    this.#teardown();
+    this.#cancelGesture();
     const generation = ++this.#generation;
     this.#lastSerial = serial;
     this.origin = origin;
@@ -270,7 +286,10 @@ export class SessionViewModel {
       session = await request();
     } catch (cause) {
       if (!this.#isCurrent(generation)) return;
-      this.#fail(generation, errorFrom(cause));
+      // While reconnecting, a failed `start_session` is transient (the device
+      // may still be re-enumerating on USB) and must not abort the sequence.
+      const retrying = this.#reconnectAttempts > 0;
+      this.#fail(generation, errorFrom(cause), origin === "live" && retrying);
       return;
     }
 
@@ -290,7 +309,8 @@ export class SessionViewModel {
         this.#renderer?.draw(frame);
       },
       onError: (error) => {
-        this.#fail(generation, this.#streamFailure(error));
+        // Decoder/config errors are not fixed by reconnecting.
+        this.#fail(generation, this.#streamFailure(error), false);
       },
     });
     const client = this.#media.createStreamClient({
@@ -298,10 +318,10 @@ export class SessionViewModel {
         this.#handleMessage(generation, message);
       },
       onError: (error) => {
-        this.#fail(generation, this.#streamFailure(error));
+        this.#fail(generation, this.#streamFailure(error), true);
       },
       onClose: (error) => {
-        this.#fail(generation, this.#streamFailure(error));
+        this.#fail(generation, this.#streamFailure(error), true);
       },
     });
     this.#sink = sink;
@@ -310,7 +330,7 @@ export class SessionViewModel {
     try {
       client.open(session.wsUrl);
     } catch (cause) {
-      this.#fail(generation, errorFrom(cause));
+      this.#fail(generation, errorFrom(cause), origin === "live");
       return;
     }
 
@@ -346,6 +366,11 @@ export class SessionViewModel {
       return;
     }
 
+    // A frame proves the reconnection worked: restart the backoff budget.
+    if (this.phase !== "streaming") {
+      this.#reconnectAttempts = 0;
+      this.#waitingForDevice = false;
+    }
     this.phase = "streaming";
     this.#frameCount += 1;
     sink.onFrame({
@@ -614,6 +639,12 @@ export class SessionViewModel {
     this.#recordingTimer = null;
   }
 
+  #cancelReconnect(): void {
+    if (this.#reconnectTimer === null) return;
+    clearTimeout(this.#reconnectTimer);
+    this.#reconnectTimer = null;
+  }
+
   #map(event: PointerEventData | WheelEventData): Point | null {
     const resolution = this.resolution;
     if (resolution === null) return null;
@@ -703,10 +734,40 @@ export class SessionViewModel {
     }
   }
 
-  #fail(generation: number, error: ErrorDto): void {
+  #fail(generation: number, error: ErrorDto, recoverable = false): void {
     if (!this.#isCurrent(generation)) return;
 
     this.#teardown();
+
+    if (recoverable && this.origin === "live" && this.#lastSerial !== null) {
+      const serial = this.#lastSerial;
+      this.#reconnectAttempts += 1;
+      const attempt = this.#reconnectAttempts;
+      this.phase = "connecting";
+      this.error = null;
+      this.fps = 0;
+
+      if (attempt <= RECONNECT_DELAYS_MS.length) {
+        this.showToast(`Conexión perdida. Reconectando… (${attempt}/3)`);
+      } else if (!this.#waitingForDevice) {
+        // The device may need several seconds to re-enumerate on USB. Keep
+        // waiting instead of dropping the user into an error state.
+        this.#waitingForDevice = true;
+        this.showToast("Esperando al dispositivo…");
+      }
+
+      const delay =
+        attempt <= RECONNECT_DELAYS_MS.length
+          ? RECONNECT_DELAYS_MS[attempt - 1]
+          : DEVICE_WAIT_INTERVAL_MS;
+      this.#reconnectTimer = setTimeout(() => {
+        this.#reconnectTimer = null;
+        if (!this.#isCurrent(generation)) return;
+        void this.startSession(serial);
+      }, delay);
+      return;
+    }
+
     this.phase = "error";
     this.error = error;
     this.fps = 0;
@@ -750,6 +811,7 @@ export class SessionViewModel {
   #teardown(): void {
     this.#stopFpsTimer();
     this.#stopRecordingTimer();
+    this.#cancelReconnect();
     if (this.#toastTimer !== null) {
       clearTimeout(this.#toastTimer);
       this.#toastTimer = null;
