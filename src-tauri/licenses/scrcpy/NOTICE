@@ -1,0 +1,17 @@
+LOTU Link distributes the unmodified scrcpy server.
+
+scrcpy-server v5.0.1, © Genymobile, Apache-2.0, https://github.com/Genymobile/scrcpy
+
+Copyright (C) 2018 Genymobile
+Copyright (C) 2018-2026 Romain Vimont
+
+The `scrcpy-server.jar` binary is downloaded from the official release asset
+declared in `vendor.lock.json` and is not modified:
+
+  https://github.com/Genymobile/scrcpy/releases/download/v5.0.1/scrcpy-server-v5.0.1
+  SHA-256 764eb6f79811d5211fe9df341120882ba9994c7a61b897d7bf3fb662e53bc536
+
+The upstream repository does not ship a NOTICE file, so this one is written by
+LOTU Link and only carries the attribution required by section 4(d) of the
+Apache License 2.0. The full license text is in `src-tauri/licenses/scrcpy/LICENSE`
+and both files must be shipped by the installer (M4).

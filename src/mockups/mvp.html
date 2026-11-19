@@ -1,0 +1,1895 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>LOTU Link — Mockup MVP</title>
+<style>
+/* ============================================================
+   Tokens — pizarra + lima
+   ============================================================ */
+:root{
+  --desktop:#070b12;
+  --app:#0f172a;
+  --rail:#0b1220;
+  --panel:#162033;
+  --panel-2:#101a2c;
+  --border:#263449;
+  --border-soft:#1c2940;
+  --text:#e2e8f0;
+  --muted:#94a3b8;
+  --dim:#64748b;
+  --lime:#a3e635;
+  --lime-dark:#65a30d;
+  --lime-soft:rgba(163,230,53,.12);
+  --lime-line:rgba(163,230,53,.34);
+  --danger:#ef4444;
+  --danger-soft:rgba(239,68,68,.13);
+  --warn:#f59e0b;
+  --warn-soft:rgba(245,158,11,.12);
+  --radius:12px;
+  --radius-lg:16px;
+  --t:150ms ease;
+  --gutter:clamp(8px,1.6vw,20px);
+  --drawer-w:340px;
+  --shadow:0 18px 48px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  padding:var(--gutter);
+  overflow:hidden;
+  color:var(--text);
+  background:
+    radial-gradient(900px 620px at 18% -5%, rgba(163,230,53,.055), transparent 62%),
+    radial-gradient(820px 600px at 102% 105%, rgba(56,189,248,.05), transparent 58%),
+    var(--desktop);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(rgba(148,163,184,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,.028) 1px, transparent 1px);
+  background-size:48px 48px;
+  mask-image:radial-gradient(80% 70% at 50% 45%, #000 25%, transparent 100%);
+}
+body.dragging{cursor:nwse-resize;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+svg{display:block;flex:none}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px;border-radius:6px}
+::selection{background:rgba(163,230,53,.28)}
+
+/* ============================================================
+   Escritorio: drawer a la izquierda + app a la derecha
+   ============================================================ */
+.workspace{
+  position:relative;
+  display:flex;
+  align-items:stretch;
+  isolation:isolate;
+}
+
+/* ============================================================
+   Marco de app — 420 × 860, redimensionable
+   ============================================================ */
+.app{
+  position:relative;
+  container:app / inline-size;
+  width:420px;
+  height:860px;
+  max-width:calc(100vw - var(--gutter) * 2);
+  max-height:calc(100dvh - var(--gutter) * 2);
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  overflow:hidden;
+  background:var(--app);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:
+    0 34px 90px rgba(0,0,0,.66),
+    0 0 0 1px rgba(0,0,0,.45),
+    0 0 60px rgba(163,230,53,.035),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+/* Asa de redimensionado */
+.resize-handle{
+  position:absolute;right:4px;bottom:4px;z-index:65;
+  width:26px;height:26px;display:grid;place-items:center;
+  color:var(--dim);cursor:nwse-resize;
+  border-radius:8px;
+  touch-action:none;
+  transition:color var(--t),background var(--t);
+}
+.resize-handle:hover{color:var(--lime);background:rgba(163,230,53,.1)}
+.app.resizing,.app.resizing *{user-select:none}
+.app.fullscreen .resize-handle{display:none}
+
+/* ============================================================
+   Barra de título
+   ============================================================ */
+.titlebar{
+  height:46px;
+  flex:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 10px 0 12px;
+  background:linear-gradient(180deg,#111c2f,#0b1220);
+  border-bottom:1px solid var(--border-soft);
+  user-select:none;
+  overflow:hidden;
+  z-index:20;
+}
+.brand{display:flex;align-items:center;gap:8px;min-width:0}
+.brand-mark{
+  width:24px;height:24px;border-radius:8px;flex:none;
+  display:grid;place-items:center;color:#0b1220;
+  background:linear-gradient(150deg,var(--lime),#84cc16);
+  box-shadow:0 2px 10px rgba(163,230,53,.3);
+}
+.brand-name{
+  font-size:16px;font-weight:650;letter-spacing:.1px;white-space:nowrap;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;
+}
+.brand-tag{
+  font-size:16px;font-weight:700;letter-spacing:.5px;flex:none;
+  color:var(--lime);background:var(--lime-soft);
+  border:1px solid rgba(163,230,53,.24);
+  padding:1px 6px;border-radius:6px;
+}
+.app.recording .brand-tag{display:none}
+.titlebar-right{margin-left:auto;display:flex;align-items:center;gap:6px;min-width:0}
+.conn{
+  display:inline-flex;align-items:center;gap:6px;
+  height:28px;padding:0 10px;border-radius:999px;
+  font-size:16px;font-weight:600;color:#cbd5e1;
+  background:rgba(15,23,42,.72);
+  border:1px solid var(--border);
+  white-space:nowrap;
+}
+.dot{
+  width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--lime);
+  box-shadow:0 0 0 3px rgba(163,230,53,.1),0 0 8px rgba(163,230,53,.6);
+}
+.rec-pill{
+  display:none;align-items:center;gap:6px;
+  height:28px;padding:0 10px;border-radius:999px;
+  font-size:16px;font-weight:700;
+  font-variant-numeric:tabular-nums;
+  color:#fecaca;
+  background:var(--danger-soft);
+  border:1px solid rgba(239,68,68,.42);
+  transition:background var(--t),border-color var(--t);
+}
+.rec-pill:hover{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.6)}
+.rec-label{font-size:16px;font-weight:800;letter-spacing:.6px;color:#fca5a5}
+.app.recording .rec-pill{display:inline-flex}
+.rec-dot{
+  width:8px;height:8px;border-radius:50%;flex:none;background:var(--danger);
+  animation:pulse 1.15s ease-in-out infinite;
+}
+
+/* ============================================================
+   Cuerpo: rail + contenido + capas
+   ============================================================ */
+.app-body{
+  width:100%;
+  flex:1;
+  min-height:0;
+  display:flex;
+  align-items:stretch;
+  position:relative;
+  overflow:hidden;
+}
+
+.rail{
+  width:56px;flex:none;position:relative;z-index:45;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:10px 0;
+  background:var(--rail);
+  border-right:1px solid var(--border-soft);
+}
+.rail-btn{
+  position:relative;
+  width:40px;height:40px;flex:none;
+  display:grid;place-items:center;
+  border-radius:11px;
+  color:var(--muted);
+  transition:background var(--t),color var(--t);
+}
+.rail-btn:hover{background:#121e32;color:var(--text)}
+.rail-btn:active{transform:translateY(1px)}
+.rail-btn.active{background:var(--lime-soft);color:var(--lime)}
+.rail-btn.active::before,
+.rail-btn.recording::before{
+  content:"";position:absolute;left:-8px;top:10px;bottom:10px;width:3px;
+  border-radius:0 3px 3px 0;background:var(--lime);
+}
+.rail-btn.recording{background:var(--danger-soft);color:#fca5a5;box-shadow:inset 0 0 0 1px rgba(239,68,68,.32)}
+.rail-btn.recording::before{background:var(--danger)}
+.rail-btn.recording:hover{background:rgba(239,68,68,.2);color:#fecaca}
+.rail-btn .stop-icon{display:none}
+.rail-btn.recording .rec-icon{display:none}
+.rail-btn.recording .stop-icon{display:block}
+.rail-sep{width:22px;height:1px;flex:none;background:var(--border-soft);margin:3px 0}
+.rail-foot{
+  margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding-top:8px;
+}
+.rail-foot .dot{width:6px;height:6px}
+.rail-ver{font-size:16px;letter-spacing:.2px;color:#475569;font-weight:600}
+
+/* Tooltips del rail */
+.rail-btn::after{
+  content:attr(data-tip);
+  position:absolute;left:calc(100% + 10px);top:50%;
+  transform:translate(-4px,-50%);
+  padding:6px 10px;border-radius:8px;
+  font-size:16px;font-weight:600;color:var(--text);
+  background:#0b1220;border:1px solid var(--border);
+  box-shadow:0 8px 22px rgba(0,0,0,.45);
+  white-space:nowrap;pointer-events:none;
+  opacity:0;visibility:hidden;
+  transition:opacity var(--t),transform var(--t),visibility var(--t);
+  z-index:80;
+}
+.rail-btn:hover::after,
+.rail-btn:focus-visible::after{opacity:1;visibility:visible;transform:translate(0,-50%)}
+
+/* ============================================================
+   Contenido / espejo
+   ============================================================ */
+.content{
+  flex:1;min-width:0;min-height:0;position:relative;
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(120% 76% at 50% 0%, #101c31 0%, #0a1220 68%, #080f1b 100%);
+}
+.session-topbar{
+  height:46px;flex:none;
+  display:flex;align-items:center;gap:8px;
+  padding:0 12px;
+  background:rgba(11,18,32,.62);
+  border-bottom:1px solid var(--border-soft);
+  min-width:0;
+  overflow:hidden;
+}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--lime);
+  box-shadow:0 0 6px rgba(163,230,53,.55);
+}
+.device-name{
+  font-size:16px;font-weight:650;letter-spacing:.1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  min-width:0;max-width:96px;flex:0 1 auto;
+}
+.pill{
+  flex:none;display:inline-flex;align-items:center;gap:5px;
+  height:28px;padding:0 9px;border-radius:999px;
+  font-size:16px;font-weight:600;color:#cbd5e1;
+  background:#0c1626;border:1px solid var(--border);
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.pill-usb{color:var(--lime);font-weight:700;letter-spacing:.3px}
+.pill-sep{color:#475569}
+.mini-stat{
+  flex:none;display:none;font-size:16px;font-weight:600;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.fs-hint{
+  display:none;align-items:center;gap:4px;flex:none;
+  margin-left:auto;height:28px;padding:0 9px;
+  border-radius:7px;border:1px solid var(--border);
+  background:#0c1626;color:#cbd5e1;
+  font-size:16px;font-weight:600;white-space:nowrap;
+  transition:background var(--t),border-color var(--t),color var(--t);
+}
+.fs-hint:hover{background:#152238;border-color:#33455f;color:var(--text)}
+.app.fullscreen .fs-hint{display:inline-flex}
+.app.fullscreen .mini-stat{display:none}
+
+/* Escenario */
+.stage{
+  flex:1;min-height:0;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  padding:10px 10px 56px;
+  overflow:hidden;
+}
+.stage::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(58% 46% at 50% 48%, rgba(163,230,53,.045), transparent 72%);
+}
+
+/* ============================================================
+   Pantalla Android simulada
+   ============================================================ */
+.screen{
+  position:relative;z-index:1;
+  container:screen / inline-size;
+  flex:none;display:flex;flex-direction:column;
+  width:300px;height:667px;
+  overflow:hidden;
+  border-radius:14px;
+  color:#f8fafc;
+  background:
+    radial-gradient(92% 58% at 78% -4%, rgba(163,230,53,.12), transparent 62%),
+    linear-gradient(168deg,#26344d 0%,#1a2438 44%,#101827 100%);
+  border:1px solid rgba(148,163,184,.16);
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.5),
+    0 0 0 1px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+.screen.rotating{transition:width 280ms ease,height 280ms ease,border-radius 280ms ease}
+.screen::after{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(112% 72% at 50% 0%, transparent 54%, rgba(2,6,12,.38));
+}
+.screen.landscape{border-radius:10px}
+
+.statusbar{
+  flex:none;position:relative;z-index:2;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:8px;
+  padding:9px 16px 4px;
+  font-size:16px;font-weight:600;letter-spacing:.1px;
+}
+.statusbar .right{display:flex;align-items:center;gap:6px}
+.android-body{
+  flex:1;min-height:0;position:relative;z-index:2;
+  display:flex;flex-direction:column;
+  padding:4px 14px 0;
+  overflow:hidden;
+}
+.wall-clock{
+  flex:none;text-align:center;
+  padding:12px 0 16px;
+  text-shadow:0 2px 14px rgba(0,0,0,.35);
+}
+.wall-time{font-size:36px;font-weight:300;letter-spacing:1px;line-height:1.05}
+.wall-date{
+  font-size:16px;color:rgba(226,232,240,.72);margin-top:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.app-grid{
+  flex:1;min-height:0;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:16px 8px;
+  align-content:center;
+  justify-items:center;
+  overflow:hidden;
+}
+.app-item{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;min-width:0;
+}
+.app-icon{
+  width:46px;height:auto;aspect-ratio:1;flex:none;
+  max-width:100%;
+  border-radius:14px;
+  display:grid;place-items:center;color:#fff;
+  background:var(--c,#334155);
+  box-shadow:
+    0 3px 10px rgba(0,0,0,.26),
+    inset 0 1px 0 rgba(255,255,255,.18);
+}
+.dock{
+  flex:none;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin:12px 0 2px;padding:10px;
+  border-radius:20px;
+  background:rgba(11,18,32,.34);
+  border:1px solid rgba(255,255,255,.075);
+  backdrop-filter:blur(8px);
+}
+.dock .app-item{flex:none;width:auto}
+.dock .app-icon{width:44px;height:44px}
+.gesture{flex:none;display:grid;place-items:center;padding:8px 0 10px}
+.gesture i{width:34%;height:4px;border-radius:4px;background:rgba(226,232,240,.8)}
+
+/* Espejo estrecho (ventana pequeña): iconos proporcionados, sin deformar */
+@container screen (max-width:255px){
+  .dock{gap:8px;padding:8px}
+  .dock .app-icon{width:36px;height:36px}
+  .app-grid{gap:10px 6px}
+  .app-icon{width:40px;height:auto;border-radius:12px}
+  .app-icon svg{width:20px;height:20px}
+  .statusbar{padding:8px 12px 3px}
+}
+@container screen (max-width:200px){
+  .dock{gap:6px;padding:6px}
+  .dock .app-icon{width:30px;height:30px;border-radius:8px}
+  .app-icon{width:34px;border-radius:10px}
+  .app-icon svg{width:17px;height:17px}
+  .wall-clock{padding:6px 0 8px}
+  .wall-time{font-size:28px}
+}
+
+/* Rotación: el contenido Android se adapta al marco horizontal */
+.screen.landscape .wall-clock{display:none}
+.screen.landscape .statusbar{padding:5px 12px 2px;font-size:16px}
+.screen.landscape .statusbar .right{gap:4px}
+.screen.landscape .statusbar .right svg{width:11px;height:11px}
+.screen.landscape .android-body{padding:2px 10px 0}
+.screen.landscape .app-grid{
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:4px;
+  align-content:center;
+}
+.screen.landscape .app-icon{width:30px;height:30px;border-radius:9px}
+.screen.landscape .app-icon svg{width:16px;height:16px}
+.screen.landscape .dock{margin:4px 0 0;padding:4px;border-radius:12px;gap:6px}
+.screen.landscape .dock .app-icon{width:24px;height:24px;border-radius:7px}
+.screen.landscape .dock .app-icon svg{width:13px;height:13px}
+.screen.landscape .gesture{padding:2px 0 4px}
+.screen.landscape .gesture i{height:3px;width:26%}
+
+/* Flash de captura */
+.screen-flash{
+  position:absolute;inset:0;z-index:9;
+  background:#fff;opacity:0;pointer-events:none;
+}
+.screen-flash.on{animation:flash 340ms ease}
+
+/* Indicador REC sobre el espejo (solo pantalla completa) */
+.stage-rec{
+  display:none;align-items:center;gap:6px;
+  position:absolute;top:18px;right:16px;z-index:12;
+  height:30px;padding:0 11px;border-radius:999px;
+  font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:#fecaca;background:rgba(11,18,32,.9);
+  border:1px solid rgba(239,68,68,.45);
+  box-shadow:0 6px 16px rgba(0,0,0,.35);
+}
+.app.fullscreen.recording .stage-rec{display:inline-flex}
+
+/* ============================================================
+   Barra flotante inferior
+   ============================================================ */
+.toolbar{
+  position:absolute;left:50%;bottom:8px;transform:translateX(-50%);
+  z-index:20;
+  display:flex;align-items:center;gap:2px;
+  padding:4px;
+  background:rgba(11,18,32,.94);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 10px 24px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.03);
+  backdrop-filter:blur(10px);
+}
+.tool-btn{
+  width:40px;height:36px;
+  display:grid;place-items:center;
+  border-radius:9px;color:var(--muted);
+  transition:background var(--t),color var(--t);
+}
+.tool-btn:hover{background:#16243a;color:var(--text)}
+.tool-btn:active{transform:translateY(1px)}
+.tool-btn.active{background:var(--lime-soft);color:var(--lime)}
+.tool-sep{width:1px;height:20px;flex:none;background:var(--border);margin:0 3px}
+
+/* ============================================================
+   Scrim (solo fallback estrecho)
+   ============================================================ */
+.scrim{
+  position:absolute;inset:0;z-index:30;
+  background:rgba(3,7,14,.6);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity 180ms ease,visibility 180ms ease;
+}
+.workspace.drawer-overlay.drawer-open .scrim{
+  opacity:1;visibility:visible;pointer-events:auto;
+}
+
+/* ============================================================
+   Drawer lateral en flujo (a la izquierda de la app)
+   El slot reserva el espacio; la app se desplaza a la derecha.
+   ============================================================ */
+.drawer-slot{
+  position:relative;
+  flex:none;
+  align-self:stretch;
+  min-height:0;
+  width:0;
+  overflow:hidden;
+  transition:width 220ms ease;
+}
+.workspace.drawer-open .drawer-slot{
+  width:calc(var(--drawer-w,340px) + 16px);
+}
+.drawer{
+  position:absolute;
+  top:0;bottom:0;left:0;right:16px;
+  width:auto;
+  min-width:var(--drawer-w,340px);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  background:linear-gradient(180deg,#162033 0%,#121c2e 100%);
+  border:1px solid var(--border);
+  border-radius:20px;
+  box-shadow:
+    0 24px 60px rgba(0,0,0,.45),
+    0 0 0 1px rgba(0,0,0,.35);
+  opacity:0;pointer-events:none;
+  transition:opacity 160ms ease;
+}
+.drawer.open{opacity:1;pointer-events:auto}
+.drawer-head{
+  flex:none;min-height:58px;
+  display:flex;align-items:center;gap:8px;
+  padding:0 12px 0 16px;
+  border-bottom:1px solid var(--border-soft);
+  background:rgba(11,18,32,.42);
+}
+.drawer-head h2{
+  flex:1;min-width:0;
+  font-size:18px;font-weight:650;letter-spacing:.1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.drawer-body{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:14px;
+  display:flex;flex-direction:column;gap:12px;
+  scrollbar-width:thin;scrollbar-color:#2b3a52 transparent;
+}
+.drawer-body::-webkit-scrollbar{width:8px}
+.drawer-body::-webkit-scrollbar-thumb{background:#2b3a52;border-radius:4px}
+.drawer-body::-webkit-scrollbar-track{background:transparent}
+.drawer-foot{
+  flex:none;display:flex;gap:10px;
+  padding:12px 14px;
+  border-top:1px solid var(--border-soft);
+  background:rgba(11,18,32,.55);
+}
+.drawer-foot .btn{flex:1}
+
+/* Botones */
+.icon-btn{
+  width:34px;height:34px;flex:none;
+  display:grid;place-items:center;
+  border-radius:9px;color:var(--muted);
+  transition:background var(--t),color var(--t);
+}
+.icon-btn:hover{background:#1e2c44;color:var(--text)}
+.icon-btn:disabled{opacity:.55;cursor:default}
+.icon-btn.loading svg{animation:spin 800ms linear infinite}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:40px;padding:0 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#182640;color:var(--text);
+  font-size:16px;font-weight:600;line-height:1.2;
+  white-space:nowrap;
+  transition:background var(--t),border-color var(--t),color var(--t),transform var(--t),opacity var(--t);
+}
+.btn:hover{background:#1e2f4d;border-color:#33455f}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.55;cursor:default;transform:none}
+.btn.primary{background:var(--lime);border-color:var(--lime);color:#10190b}
+.btn.primary:hover{background:#b5f04e;border-color:#b5f04e}
+.btn.warn{background:var(--warn-soft);border-color:rgba(245,158,11,.34);color:#fbbf24}
+.btn.warn:hover{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.5)}
+.btn.ghost{background:transparent;color:#cbd5e1}
+.btn.ghost:hover{background:#1a2740;border-color:#33455f}
+.btn.full{width:100%}
+.btn.small{min-height:36px;padding:0 10px;font-size:16px;border-radius:9px}
+
+/* ============================================================
+   Drawer Dispositivos
+   ============================================================ */
+.scan-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:0 2px;
+  font-size:16px;color:var(--dim);
+}
+.scan-row #last-scan{
+  min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-variant-numeric:tabular-nums;
+}
+.scan-count{display:inline-flex;align-items:center;gap:5px;flex:none;color:var(--muted)}
+.scan-count .dot{width:5px;height:5px;box-shadow:none;opacity:.8}
+.device-card{
+  display:flex;flex-direction:column;gap:10px;
+  padding:14px;
+  border-radius:14px;
+  background:linear-gradient(180deg,#18243a,#141e31);
+  border:1px solid var(--border);
+  position:relative;
+  overflow:hidden;
+}
+.device-card.ok{border-color:rgba(163,230,53,.24)}
+.device-card.ok::before{
+  content:"";position:absolute;left:0;top:16px;bottom:16px;width:2px;
+  border-radius:0 2px 2px 0;background:var(--lime);
+  opacity:.7;
+}
+.device-card.unauth{border-left:2px solid rgba(245,158,11,.6)}
+.device-head{display:flex;align-items:center;gap:10px;min-width:0}
+.device-avatar{
+  width:38px;height:38px;flex:none;
+  display:grid;place-items:center;border-radius:11px;
+  color:var(--lime);background:var(--lime-soft);
+  border:1px solid var(--lime-line);
+}
+.device-card.unauth .device-avatar{
+  color:var(--warn);background:var(--warn-soft);
+  border-color:rgba(245,158,11,.3);
+}
+.device-id{flex:1;min-width:0}
+.device-id .name{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:16px;font-weight:650;line-height:1.3;
+}
+.status{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:2px 9px;border-radius:999px;
+  font-size:16px;font-weight:700;letter-spacing:.1px;
+  white-space:nowrap;
+}
+.status.ok{color:var(--lime);background:var(--lime-soft)}
+.status.warn{color:#fbbf24;background:var(--warn-soft)}
+.status .dot{width:5px;height:5px;box-shadow:none}
+.status.warn .dot{background:var(--warn)}
+.meta{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  display:inline-flex;align-items:center;
+  padding:3px 9px;border-radius:999px;
+  font-size:16px;color:#b6c2d4;
+  background:#0d1727;border:1px solid var(--border-soft);
+  white-space:nowrap;
+}
+.device-sub{font-size:16px;color:var(--muted);line-height:1.4}
+.device-card .btn{min-height:38px}
+
+.steps{
+  padding:12px 14px;
+  border-radius:14px;
+  background:var(--panel-2);
+  border:1px solid var(--border-soft);
+}
+.steps-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}
+.steps-head h3{font-size:18px;font-weight:700;letter-spacing:.1px}
+.steps-head span{font-size:16px;color:var(--lime);font-weight:600}
+.step{display:flex;gap:10px;padding:9px 0;border-top:1px solid rgba(38,52,73,.55)}
+.step:first-of-type{border-top:0}
+.steps-head + .step{border-top:0;padding-top:4px}
+.step-num{
+  width:24px;height:24px;flex:none;
+  display:grid;place-items:center;border-radius:50%;
+  font-size:16px;font-weight:700;color:var(--lime);
+  background:var(--lime-soft);border:1px solid var(--lime-line);
+}
+.step.done .step-num{
+  color:#10190b;background:var(--lime);border-color:var(--lime);
+}
+.step-title{font-size:16px;font-weight:600;line-height:1.3}
+.step-desc{font-size:16px;line-height:1.4;color:var(--muted);margin-top:2px}
+
+/* ============================================================
+   Drawer Ajustes
+   ============================================================ */
+.group-label{
+  font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--dim);padding:4px 2px 0;
+}
+.field{
+  padding:12px;
+  border-radius:12px;
+  background:var(--panel-2);
+  border:1px solid var(--border-soft);
+}
+.field-row{display:flex;align-items:center;gap:10px;min-width:0}
+.field-row label,
+.field-label{font-size:16px;font-weight:600;flex:1;min-width:0}
+.hint-inline{font-size:16px;color:var(--dim);white-space:nowrap}
+.value{
+  font-size:16px;font-weight:700;color:var(--lime);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.segmented{
+  display:flex;width:100%;margin-top:8px;
+  border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;background:#0b1422;
+}
+.segmented button{
+  flex:1;min-width:0;height:42px;
+  font-size:16px;font-weight:600;color:var(--muted);
+  transition:background var(--t),color var(--t);
+}
+.segmented button + button{border-left:1px solid var(--border)}
+.segmented button:hover{background:#131f33;color:var(--text)}
+.segmented button.on{background:var(--lime-soft);color:var(--lime)}
+.segmented button:focus-visible{outline-offset:-2px;border-radius:0}
+input[type=range]{
+  display:block;width:100%;height:26px;margin-top:8px;
+  accent-color:var(--lime);cursor:pointer;
+}
+.folder{display:flex;align-items:center;gap:8px;margin-top:8px}
+.folder-path{
+  flex:1;min-width:0;
+  padding:8px 10px;border-radius:8px;
+  font:16px/1.3 ui-monospace,Consolas,"Cascadia Mono",monospace;
+  color:var(--muted);background:#0b1422;
+  border:1px solid var(--border-soft);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.radio-list{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.radio{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 9px;border-radius:8px;
+  font-size:16px;color:#cbd5e1;cursor:pointer;
+  border:1px solid transparent;
+  transition:background var(--t);
+}
+.radio:hover{background:#0b1422}
+.radio input{width:16px;height:16px;flex:none;accent-color:var(--lime)}
+.radio .chip{margin-left:auto;font-size:16px;padding:2px 8px}
+.note{
+  font-size:16px;line-height:1.45;color:#64748b;
+  padding:0 3px 4px;
+}
+
+/* ============================================================
+   Modal de autorización
+   ============================================================ */
+.modal-layer{
+  position:absolute;inset:0;z-index:70;
+  display:grid;place-items:center;
+  padding:16px;
+  background:rgba(3,7,14,.74);
+  backdrop-filter:blur(3px);
+  animation:fade 150ms ease;
+}
+.modal{
+  width:100%;max-width:360px;max-height:100%;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  background:linear-gradient(180deg,#172238,#111a2a);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:0 26px 64px rgba(0,0,0,.62);
+  animation:pop 160ms ease;
+}
+.modal-head{
+  flex:none;display:flex;align-items:center;gap:8px;
+  padding:0 12px 0 16px;min-height:58px;
+  border-bottom:1px solid var(--border-soft);
+}
+.modal-head h2{flex:1;min-width:0;font-size:18px;font-weight:650}
+.modal-body{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:14px 16px;
+  scrollbar-width:thin;scrollbar-color:#2b3a52 transparent;
+}
+.modal-body::-webkit-scrollbar{width:8px}
+.modal-body::-webkit-scrollbar-thumb{background:#2b3a52;border-radius:4px}
+.modal-lede{font-size:16px;line-height:1.45;color:var(--muted);margin-bottom:10px}
+.auth-step{display:flex;gap:10px;padding:10px 0;border-top:1px solid rgba(38,52,73,.5)}
+.auth-step:first-of-type{border-top:0;padding-top:0}
+.auth-step .step-num{width:26px;height:26px;font-size:16px}
+.auth-step .step-title{font-size:16px;font-weight:650}
+.auth-step .step-desc{font-size:16px;margin-top:2px}
+.auth-note{
+  margin-top:12px;padding:10px 12px;
+  font-size:16px;line-height:1.5;color:var(--muted);
+  background:#0b1422;border:1px solid var(--border-soft);border-radius:10px;
+}
+.auth-note code{
+  display:inline-block;margin-top:4px;
+  font:16px/1.4 ui-monospace,Consolas,monospace;
+  color:var(--lime);letter-spacing:.2px;
+}
+.modal-foot{
+  flex:none;display:flex;gap:10px;
+  padding:12px 14px;
+  border-top:1px solid var(--border-soft);
+  background:rgba(11,18,32,.5);
+}
+.modal-foot .btn{flex:1}
+
+/* ============================================================
+   Toasts
+   ============================================================ */
+.toasts{
+  position:absolute;left:50%;bottom:70px;transform:translateX(-50%);
+  z-index:90;
+  width:min(360px,calc(100% - 24px));
+  display:flex;flex-direction:column;align-items:stretch;gap:6px;
+  pointer-events:none;
+}
+.toast{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:rgba(11,18,32,.97);
+  border:1px solid var(--border);
+  border-left:3px solid #38bdf8;
+  box-shadow:0 10px 26px rgba(0,0,0,.45);
+  font-size:16px;line-height:1.35;color:var(--text);
+  animation:toast-in 180ms ease;
+  backdrop-filter:blur(8px);
+}
+.toast.success{border-left-color:var(--lime)}
+.toast.warn{border-left-color:var(--warn)}
+.toast.danger{border-left-color:var(--danger)}
+.toast.info{border-left-color:#38bdf8}
+.toast svg{color:#38bdf8}
+.toast.success svg{color:var(--lime)}
+.toast.warn svg{color:var(--warn)}
+.toast.danger svg{color:#f87171}
+.toast .toast-msg{min-width:0}
+.toast.out{animation:toast-out 180ms ease forwards}
+
+/* ============================================================
+   Pantalla completa
+   ============================================================ */
+.app.fullscreen .titlebar,
+.app.fullscreen .rail{display:none}
+.app.fullscreen .stage{padding-top:12px}
+
+/* ============================================================
+   Fallback estrecho: sin sitio para el panel externo, el slot
+   se superpone a la app (solo viewports muy estrechos)
+   ============================================================ */
+.workspace.drawer-overlay .drawer-slot{
+  position:absolute;left:0;top:0;bottom:0;z-index:50;
+  width:0;
+}
+.workspace.drawer-overlay.drawer-open .drawer-slot{
+  width:var(--drawer-w,340px);
+}
+.workspace.drawer-overlay .drawer{
+  right:0;
+  border-radius:20px 0 0 20px;
+}
+
+/* ============================================================
+   Responsive (según el ancho de la app, no de la ventana)
+   ============================================================ */
+@container app (max-width:418px){
+  .conn-text{display:none}
+}
+@container app (max-width:400px){
+  .brand-tag{display:none}
+}
+@container app (min-width:480px){
+  .mini-stat{display:inline}
+}
+@container app (min-width:560px){
+  .device-name{max-width:150px}
+}
+
+/* ============================================================
+   Animaciones
+   ============================================================ */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes flash{0%{opacity:.92}100%{opacity:0}}
+@keyframes pulse{
+  0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,.5)}
+  50%{opacity:.5;box-shadow:0 0 0 4px rgba(239,68,68,0)}
+}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:scale(.975)}to{opacity:1;transform:none}}
+@keyframes toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes toast-out{to{opacity:0;transform:translateY(8px)}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="workspace" id="workspace">
+<div class="drawer-slot" id="drawer-slot">
+
+  <!-- ===== Drawer: Dispositivos (fuera de la app, a la izquierda) ===== -->
+  <aside class="drawer" id="drawer-devices" role="dialog" aria-labelledby="devices-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <h2 id="devices-title">Dispositivos</h2>
+      <button class="icon-btn" id="btn-refresh" type="button" title="Refrescar dispositivos" aria-label="Refrescar dispositivos">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <button class="icon-btn drawer-close" type="button" data-drawer-close="devices" title="Cerrar" aria-label="Cerrar dispositivos">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="scan-row">
+        <span id="last-scan">Último escaneo: —</span>
+        <span class="scan-count"><span class="dot" aria-hidden="true"></span>2 equipos</span>
+      </div>
+
+      <article class="device-card ok">
+        <div class="device-head">
+          <span class="device-avatar" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+          </span>
+          <div class="device-id">
+            <div class="name">
+              Pixel 8 Pro
+              <span class="status ok"><span class="dot" aria-hidden="true"></span>Conectado</span>
+            </div>
+            <div class="device-sub">USB 3.0 · listo para espejar</div>
+          </div>
+        </div>
+        <div class="meta">
+          <span class="chip">Android 15</span>
+          <span class="chip">1080×2400</span>
+          <span class="chip">Batería 78 %</span>
+        </div>
+        <button class="btn primary full" id="btn-open-mirror" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Abrir espejo
+        </button>
+      </article>
+
+      <article class="device-card unauth">
+        <div class="device-head">
+          <span class="device-avatar" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M12 8v4M12 15.5h.01"/></svg>
+          </span>
+          <div class="device-id">
+            <div class="name">
+              Galaxy S23
+              <span class="status warn"><span class="dot" aria-hidden="true"></span>Sin autorizar</span>
+            </div>
+            <div class="device-sub">Android 14 · 1080×2340 · depuración pendiente</div>
+          </div>
+        </div>
+        <button class="btn warn full" id="btn-auth-help" type="button">Cómo autorizar</button>
+      </article>
+
+      <section class="steps" aria-labelledby="steps-title">
+        <div class="steps-head">
+          <h3 id="steps-title">Primeros pasos</h3>
+          <span>1 de 3 listo</span>
+        </div>
+        <div class="step done">
+          <span class="step-num" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+          </span>
+          <div>
+            <div class="step-title">Opciones de desarrollador</div>
+            <div class="step-desc">Ajustes → Acerca del teléfono → 7 toques en «Número de compilación».</div>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-num" aria-hidden="true">2</span>
+          <div>
+            <div class="step-title">Depuración USB</div>
+            <div class="step-desc">Ajustes → Sistema → Opciones de desarrollador → Depuración USB.</div>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-num" aria-hidden="true">3</span>
+          <div>
+            <div class="step-title">Huella RSA</div>
+            <div class="step-desc">Marca «Permitir siempre desde este equipo» y acepta el diálogo.</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ===== Drawer: Ajustes (fuera de la app, a la izquierda) ===== -->
+  <aside class="drawer" id="drawer-settings" role="dialog" aria-labelledby="settings-title" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <h2 id="settings-title">Ajustes</h2>
+      <button class="icon-btn drawer-close" type="button" data-drawer-close="settings" title="Cerrar" aria-label="Cerrar ajustes">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <div class="group-label">Vídeo</div>
+
+      <div class="field">
+        <div class="field-row">
+          <span id="resolution-label">Resolución</span>
+          <span class="hint-inline">lado mayor</span>
+        </div>
+        <div class="segmented" id="res-seg" role="radiogroup" aria-labelledby="resolution-label">
+          <button type="button" data-res="native" class="on" role="radio" aria-checked="true" title="Nativa (1080×2400)">Nativa</button>
+          <button type="button" data-res="1920" role="radio" aria-checked="false" title="1920 (864×1920)">1920</button>
+          <button type="button" data-res="1280" role="radio" aria-checked="false" title="1280 (576×1280)">1280</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-row">
+          <label for="set-bitrate">Bitrate</label>
+          <span class="value" id="bitrate-value">8.0 Mbps</span>
+        </div>
+        <input type="range" id="set-bitrate" min="2" max="20" step="0.5" value="8" aria-label="Bitrate en Mbps">
+      </div>
+
+      <div class="field">
+        <div class="field-row">
+          <span class="field-label" id="fps-label">FPS</span>
+          <span class="hint-inline">máximos</span>
+        </div>
+        <div class="segmented" id="fps-seg" role="radiogroup" aria-labelledby="fps-label">
+          <button type="button" data-fps="30" role="radio" aria-checked="false">30</button>
+          <button type="button" data-fps="60" class="on" role="radio" aria-checked="true">60</button>
+        </div>
+      </div>
+
+      <div class="group-label">Archivos</div>
+
+      <div class="field">
+        <div class="field-row"><span class="field-label">Capturas</span></div>
+        <div class="folder">
+          <span class="folder-path" title="Carpeta de capturas">Imágenes\LOTU Link</span>
+          <button class="btn small" type="button" data-folder="capturas" aria-label="Cambiar carpeta de capturas">Cambiar</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-row"><span class="field-label">Grabaciones</span></div>
+        <div class="folder">
+          <span class="folder-path" title="Carpeta de grabaciones">Vídeos\LOTU Link</span>
+          <button class="btn small" type="button" data-folder="grabaciones" aria-label="Cambiar carpeta de grabaciones">Cambiar</button>
+        </div>
+      </div>
+
+      <div class="group-label">ADB</div>
+
+      <div class="field">
+        <div class="radio-list">
+          <label class="radio">
+            <input type="radio" name="adb-source" value="bundled" checked>
+            Empaquetado
+            <span class="chip">recomendado</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="adb-source" value="system">
+            Del sistema
+          </label>
+        </div>
+      </div>
+
+      <p class="note">Mockup de diseño. No hay ADB, vídeo ni grabación reales.</p>
+    </div>
+
+    <footer class="drawer-foot">
+      <button class="btn ghost" id="btn-settings-cancel" type="button">Cancelar</button>
+      <button class="btn primary" id="btn-settings-save" type="button">Guardar</button>
+    </footer>
+  </aside>
+</div>
+
+  <!-- ===== App ===== -->
+  <div class="app" id="app">
+
+    <!-- ===== Barra de título ===== -->
+    <header class="titlebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+        </span>
+        <span class="brand-name">LOTU Link</span>
+        <span class="brand-tag">MVP</span>
+      </div>
+      <div class="titlebar-right">
+        <span class="conn" title="Pixel 8 Pro conectado por USB">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="conn-text">Conectado</span>
+        </span>
+        <button class="rec-pill" id="rec-pill" type="button" title="Detener grabación" aria-label="Detener grabación">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span class="rec-label">REC</span>
+          <span id="rec-pill-time">00:00</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="app-body">
+
+      <!-- ===== Rail (pegado al borde izquierdo) ===== -->
+      <nav class="rail" aria-label="Acciones principales">
+        <button class="rail-btn" id="rail-devices" type="button" data-tip="Dispositivos" aria-label="Dispositivos" aria-expanded="false" aria-controls="drawer-devices">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+        </button>
+        <button class="rail-btn active" id="rail-session" type="button" data-tip="Espejo" aria-label="Volver al espejo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </button>
+        <span class="rail-sep" aria-hidden="true"></span>
+        <button class="rail-btn" id="rail-capture" type="button" data-tip="Captura" aria-label="Captura de pantalla" title="Captura de pantalla (PNG)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button class="rail-btn" id="rail-record" type="button" data-tip="Grabar" aria-label="Grabar vídeo" aria-pressed="false" title="Grabar vídeo (MP4)">
+          <svg class="rec-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/></svg>
+          <svg class="stop-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="rail-btn" id="rail-settings" type="button" data-tip="Ajustes" aria-label="Ajustes" aria-expanded="false" aria-controls="drawer-settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55h.01a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1z"/></svg>
+        </button>
+        <div class="rail-foot">
+          <span class="dot" title="USB conectado" aria-hidden="true"></span>
+          <span class="rail-ver" aria-hidden="true">v0.1</span>
+        </div>
+      </nav>
+
+      <!-- ===== Contenido: espejo ===== -->
+      <main class="content" aria-label="Sesión de espejo">
+        <div class="session-topbar">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span class="device-name" title="Pixel 8 Pro">Pixel 8 Pro</span>
+          <span class="pill" title="Conexión USB y resolución del stream">
+            <span class="pill-usb">USB</span><span class="pill-sep">·</span><span id="top-res">1080×2400</span>
+          </span>
+          <span class="mini-stat" id="top-fps">60 FPS</span>
+          <span class="mini-stat" id="top-bitrate">8.0 Mbps</span>
+          <button class="fs-hint" id="fs-hint" type="button" title="Salir de pantalla completa" aria-label="Salir de pantalla completa">Esc · salir</button>
+        </div>
+
+        <section class="stage" id="stage" aria-label="Espejo de Pixel 8 Pro">
+          <div class="screen" id="screen" role="img" aria-label="Pantalla de inicio simulada de Android 15 en Pixel 8 Pro">
+            <div class="screen-flash" id="screen-flash" aria-hidden="true"></div>
+
+            <div class="statusbar">
+              <span id="status-time">9:41</span>
+              <span class="right" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21l4.9-6.1C15.5 13.7 13.8 13 12 13s-3.5.7-4.9 1.9L12 21zm0-18C7.9 3 4.1 4.4 1.2 6.8L3 9c2.4-1.9 5.6-3 9-3s6.6 1.1 9 3l1.8-2.2C19.9 4.4 16.1 3 12 3zm0 6c-2.7 0-5.2.9-7.1 2.4l1.8 2.2c1.4-1.1 3.3-1.8 5.3-1.8s3.9.7 5.3 1.8l1.8-2.2C17.2 9.9 14.7 9 12 9z"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M2 22h20V2L2 22z"/></svg>
+                <svg width="20" height="12" viewBox="0 0 28 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="23" height="10" rx="2.5"/><rect x="3" y="4" width="15.2" height="6" rx="1" fill="currentColor" stroke="none"/><path d="M26 5v4" stroke-linecap="round"/></svg>
+              </span>
+            </div>
+
+            <div class="android-body">
+              <div class="wall-clock">
+                <div class="wall-time" id="wall-time">9:41</div>
+                <div class="wall-date" id="wall-date">Martes, 18 de noviembre</div>
+              </div>
+              <div class="app-grid" id="app-grid" aria-hidden="true"></div>
+              <div class="dock" id="dock" aria-hidden="true"></div>
+            </div>
+
+            <div class="gesture" aria-hidden="true"><i></i></div>
+          </div>
+
+          <button class="stage-rec" id="stage-rec" type="button" title="Detener grabación" aria-label="Detener grabación">
+            <span class="rec-dot" aria-hidden="true"></span>REC <span id="stage-rec-time">00:00</span>
+          </button>
+        </section>
+
+        <div class="toolbar" role="toolbar" aria-label="Controles del dispositivo">
+          <button class="tool-btn" id="tool-back" type="button" title="Atrás" aria-label="Atrás">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+          </button>
+          <button class="tool-btn" id="tool-home" type="button" title="Home" aria-label="Home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/></svg>
+          </button>
+          <button class="tool-btn" id="tool-recents" type="button" title="Recientes" aria-label="Recientes">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+          </button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button class="tool-btn" id="tool-rotate" type="button" title="Rotar a horizontal" aria-label="Rotar pantalla">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg>
+          </button>
+          <button class="tool-btn" id="tool-fullscreen" type="button" title="Pantalla completa" aria-label="Pantalla completa" aria-pressed="false">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+        </div>
+      </main>
+
+      <div class="scrim" id="scrim" aria-hidden="true"></div>
+    </div>
+
+    <!-- ===== Toasts ===== -->
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <!-- ===== Modal: autorización USB ===== -->
+    <div class="modal-layer" id="auth-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <div class="modal-head">
+          <h2 id="auth-title">Autorizar depuración USB</h2>
+          <button class="icon-btn" id="btn-auth-close" type="button" title="Cerrar" aria-label="Cerrar">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-lede">Sigue estos pasos en el Galaxy S23. Al terminar, pulsa refrescar en Dispositivos.</p>
+
+          <div class="auth-step">
+            <span class="step-num" aria-hidden="true">1</span>
+            <div>
+              <div class="step-title">Activa las opciones de desarrollador</div>
+              <div class="step-desc">Ajustes → Acerca del teléfono → Información de software → 7 toques en «Número de compilación».</div>
+            </div>
+          </div>
+          <div class="auth-step">
+            <span class="step-num" aria-hidden="true">2</span>
+            <div>
+              <div class="step-title">Activa la depuración USB</div>
+              <div class="step-desc">Ajustes → Opciones de desarrollador → «Depuración USB». Reconecta el cable si hace falta.</div>
+            </div>
+          </div>
+          <div class="auth-step">
+            <span class="step-num" aria-hidden="true">3</span>
+            <div>
+              <div class="step-title">Acepta la huella RSA</div>
+              <div class="step-desc">Marca «Permitir siempre desde este equipo» y pulsa Permitir en el móvil.</div>
+            </div>
+          </div>
+
+          <div class="auth-note">
+            Huella RSA de este PC:<br>
+            <code id="rsa-fingerprint">—</code><br>
+            Si no aparece el diálogo, revoca las autorizaciones de depuración USB y vuelve a conectar.
+          </div>
+        </div>
+        <footer class="modal-foot">
+          <button class="btn primary full" id="btn-auth-ok" type="button">Entendido</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Asa de redimensionado -->
+    <div class="resize-handle" id="resize-handle" title="Arrastra para redimensionar la ventana" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13 6L6 13M13 10L10 13"/></svg>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   LOTU Link — mockup de interfaz. Simulación sin backend.
+   ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+
+const RESOLUTIONS = {
+  native: "1080×2400",
+  "1920": "864×1920",
+  "1280": "576×1280",
+};
+
+const MIN_SIZE = { w: 400, h: 640 };
+const PANEL_MAX = 340;
+const PANEL_MIN = 240;
+const PANEL_GAP = 16;
+
+const state = {
+  drawer: null,
+  landscape: false,
+  fullscreen: false,
+  recording: false,
+  recStarted: 0,
+  recTimer: null,
+  size: null,
+  settings: { resolution: "native", bitrate: 8, fps: 60, adb: "bundled" },
+};
+
+const workspace = $("workspace");
+const app = $("app");
+const stage = $("stage");
+const screenEl = $("screen");
+const railDevices = $("rail-devices");
+const railSession = $("rail-session");
+const railCapture = $("rail-capture");
+const railRecord = $("rail-record");
+const railSettings = $("rail-settings");
+const scrim = $("scrim");
+const drawerDevices = $("drawer-devices");
+const drawerSettings = $("drawer-settings");
+const recPill = $("rec-pill");
+const bitrateInput = $("set-bitrate");
+const resizeHandle = $("resize-handle");
+
+/* ---------- Toasts ---------- */
+const TOAST_ICONS = {
+  success: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg>',
+  info: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5M12 7.5h.01"/></svg>',
+  warn: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2.5 20h19L12 3z"/><path d="M12 10v4M12 17.2h.01"/></svg>',
+  danger: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/></svg>',
+};
+
+function toast(message, type = "info") {
+  const host = $("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + type;
+  el.innerHTML = (TOAST_ICONS[type] || TOAST_ICONS.info) + '<span class="toast-msg"></span>';
+  el.lastElementChild.textContent = message;
+  host.appendChild(el);
+
+  while (host.children.length > 3) host.firstElementChild.remove();
+
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 240);
+  }, 2800);
+}
+
+/* ---------- Reloj ---------- */
+function updateClock() {
+  const now = new Date();
+  const time = now
+    .toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+    .replace(/^0/, "");
+  const date = now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  $("status-time").textContent = time;
+  $("wall-time").textContent = time;
+  $("wall-date").textContent = date.charAt(0).toUpperCase() + date.slice(1);
+}
+
+/* ---------- Encaje del espejo con letterbox ---------- */
+function fitScreen() {
+  const cs = getComputedStyle(stage);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  const availW = Math.max(0, stage.clientWidth - padX);
+  const availH = Math.max(0, stage.clientHeight - padY);
+  if (!availW || !availH) return;
+
+  const ratio = state.landscape ? 2400 / 1080 : 1080 / 2400;
+  let w = availW;
+  let h = w / ratio;
+  if (h > availH) {
+    h = availH;
+    w = h * ratio;
+  }
+  screenEl.style.width = Math.floor(w) + "px";
+  screenEl.style.height = Math.floor(h) + "px";
+}
+
+/* ---------- Drawer en flujo, a la izquierda de la app ---------- */
+function contentWidth() {
+  return window.innerWidth - bodyPadding() * 2;
+}
+
+/* Ancho máximo de la app: con el panel abierto se reserva hueco
+   para un panel mínimo, sin desbordar la ventana. */
+function appLimitWidth() {
+  const contentW = contentWidth();
+  if (!state.drawer) return contentW;
+  if (contentW < MIN_SIZE.w + PANEL_GAP + PANEL_MIN) return contentW;
+  return contentW - PANEL_GAP - PANEL_MIN;
+}
+
+function layoutDrawer() {
+  const contentW = contentWidth();
+  const appW = app.getBoundingClientRect().width || 420;
+  const space = contentW - PANEL_GAP - appW;
+  const overlay = space < PANEL_MIN;
+
+  workspace.classList.toggle("drawer-overlay", overlay);
+
+  const width = overlay
+    ? Math.min(PANEL_MAX, Math.max(PANEL_MIN, contentW - 64))
+    : Math.min(PANEL_MAX, Math.max(PANEL_MIN, Math.floor(space)));
+
+  workspace.style.setProperty("--drawer-w", Math.floor(width) + "px");
+}
+
+/* ---------- Redimensionado de la ventana ---------- */
+function bodyPadding() {
+  return parseFloat(getComputedStyle(document.body).paddingLeft) || 0;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function applyAppSize() {
+  const contentW = contentWidth();
+  const contentH = window.innerHeight - bodyPadding() * 2;
+  const desired = state.size || { w: 420, h: 860 };
+  const maxW = Math.max(1, appLimitWidth());
+  const maxH = Math.max(1, contentH);
+
+  const w = clamp(desired.w, Math.min(MIN_SIZE.w, maxW), maxW);
+  const h = clamp(desired.h, Math.min(MIN_SIZE.h, maxH), maxH);
+
+  app.style.width = Math.round(w) + "px";
+  app.style.height = Math.round(h) + "px";
+}
+
+let drag = null;
+
+resizeHandle.addEventListener("pointerdown", (event) => {
+  if (state.fullscreen || event.button !== 0) return;
+  const rect = app.getBoundingClientRect();
+  drag = { x: event.clientX, y: event.clientY, w: rect.width, h: rect.height, id: event.pointerId };
+  resizeHandle.setPointerCapture(event.pointerId);
+  app.classList.add("resizing");
+  document.body.classList.add("dragging");
+  event.preventDefault();
+});
+
+resizeHandle.addEventListener("pointermove", (event) => {
+  if (!drag || event.pointerId !== drag.id) return;
+  const maxW = Math.max(1, appLimitWidth());
+  const maxH = Math.max(1, window.innerHeight - bodyPadding() * 2);
+
+  const w = clamp(drag.w + (event.clientX - drag.x), Math.min(MIN_SIZE.w, maxW), maxW);
+  const h = clamp(drag.h + (event.clientY - drag.y), Math.min(MIN_SIZE.h, maxH), maxH);
+
+  state.size = { w, h };
+  app.style.width = Math.round(w) + "px";
+  app.style.height = Math.round(h) + "px";
+
+  layoutDrawer();
+  fitScreen();
+});
+
+function endResize(event) {
+  if (!drag) return;
+  if (event && event.pointerId !== drag.id) return;
+  drag = null;
+  app.classList.remove("resizing");
+  document.body.classList.remove("dragging");
+  layoutDrawer();
+  fitScreen();
+}
+
+resizeHandle.addEventListener("pointerup", endResize);
+resizeHandle.addEventListener("pointercancel", endResize);
+
+/* ---------- Rail / drawers ---------- */
+function updateRail() {
+  const devicesOpen = state.drawer === "devices";
+  const settingsOpen = state.drawer === "settings";
+
+  railDevices.classList.toggle("active", devicesOpen);
+  railSettings.classList.toggle("active", settingsOpen);
+  railSession.classList.toggle("active", state.drawer === null && !state.fullscreen);
+  railDevices.setAttribute("aria-expanded", String(devicesOpen));
+  railSettings.setAttribute("aria-expanded", String(settingsOpen));
+}
+
+function setDrawer(name) {
+  if (state.drawer === name) {
+    closeDrawer(true);
+    return;
+  }
+
+  const active = document.activeElement;
+  if (active && active.closest && active.closest(".drawer")) {
+    railSession.focus({ preventScroll: true });
+  }
+
+  state.drawer = name;
+  const drawers = { devices: drawerDevices, settings: drawerSettings };
+
+  Object.keys(drawers).forEach((key) => {
+    const el = drawers[key];
+    const open = key === name;
+    el.classList.toggle("open", open);
+    el.setAttribute("aria-hidden", open ? "false" : "true");
+    el.inert = !open;
+  });
+
+  if (name === "settings") syncSettings();
+  workspace.classList.add("drawer-open");
+  applyAppSize();
+  layoutDrawer();
+  updateRail();
+
+  setTimeout(() => {
+    const closeBtn = drawers[name] && drawers[name].querySelector(".drawer-close");
+    if (closeBtn && state.drawer === name) closeBtn.focus({ preventScroll: true });
+  }, 30);
+}
+
+function closeDrawer(restoreFocus) {
+  if (!state.drawer) return;
+  const focused = document.activeElement;
+  if (focused && focused.closest && focused.closest(".drawer")) {
+    railSession.focus({ preventScroll: true });
+  }
+
+  state.drawer = null;
+  workspace.classList.remove("drawer-open");
+  [drawerDevices, drawerSettings].forEach((el) => {
+    el.classList.remove("open");
+    el.setAttribute("aria-hidden", "true");
+    el.inert = true;
+  });
+  updateRail();
+  applyAppSize();
+  layoutDrawer();
+  if (restoreFocus && !state.fullscreen) railSession.focus({ preventScroll: true });
+}
+
+railDevices.addEventListener("click", () => setDrawer("devices"));
+railSettings.addEventListener("click", () => setDrawer("settings"));
+railSession.addEventListener("click", () => closeDrawer(true));
+scrim.addEventListener("click", () => closeDrawer(true));
+
+document.querySelectorAll("[data-drawer-close]").forEach((btn) => {
+  btn.addEventListener("click", () => closeDrawer(true));
+});
+
+/* ---------- Dispositivos ---------- */
+function refreshDevices() {
+  const btn = $("btn-refresh");
+  if (btn.disabled) return;
+
+  btn.disabled = true;
+  btn.classList.add("loading");
+  btn.setAttribute("aria-busy", "true");
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.classList.remove("loading");
+    btn.removeAttribute("aria-busy");
+    $("last-scan").textContent =
+      "Último escaneo: " + new Date().toLocaleTimeString("es-ES");
+    toast("2 dispositivos detectados · Pixel 8 Pro disponible", "success");
+  }, 950);
+}
+
+$("btn-refresh").addEventListener("click", refreshDevices);
+
+$("btn-open-mirror").addEventListener("click", () => {
+  closeDrawer(false);
+  toast("Espejo activo · Pixel 8 Pro por USB", "success");
+});
+
+/* ---------- Huella RSA simulada (aleatoria en cada carga) ---------- */
+function randomFingerprint() {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).toUpperCase().padStart(2, "0")).join(":");
+}
+
+/* ---------- Modal de autorización ---------- */
+let authReturnFocus = null;
+
+function openAuth() {
+  authReturnFocus = document.activeElement;
+  if (workspace.classList.contains("drawer-overlay")) closeDrawer(false);
+  $("auth-modal").hidden = false;
+  setTimeout(() => $("btn-auth-close").focus({ preventScroll: true }), 30);
+}
+
+function closeAuth() {
+  $("auth-modal").hidden = true;
+  if (authReturnFocus && document.contains(authReturnFocus)) {
+    authReturnFocus.focus({ preventScroll: true });
+  }
+  authReturnFocus = null;
+}
+
+$("btn-auth-help").addEventListener("click", openAuth);
+$("btn-auth-close").addEventListener("click", closeAuth);
+$("btn-auth-ok").addEventListener("click", () => {
+  closeAuth();
+  toast("Acepta el diálogo RSA en el móvil y pulsa Refrescar", "info");
+});
+$("auth-modal").addEventListener("click", (event) => {
+  if (event.target === $("auth-modal")) closeAuth();
+});
+
+/* ---------- Ajustes ---------- */
+function syncSettings() {
+  const s = state.settings;
+
+  document.querySelectorAll("#res-seg [data-res]").forEach((btn) => {
+    const on = btn.dataset.res === s.resolution;
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-checked", String(on));
+  });
+
+  document.querySelectorAll("#fps-seg [data-fps]").forEach((btn) => {
+    const on = Number(btn.dataset.fps) === s.fps;
+    btn.classList.toggle("on", on);
+    btn.setAttribute("aria-checked", String(on));
+  });
+
+  bitrateInput.value = String(s.bitrate);
+  $("bitrate-value").textContent = Number(s.bitrate).toFixed(1) + " Mbps";
+
+  document.querySelectorAll('input[name="adb-source"]').forEach((radio) => {
+    radio.checked = radio.value === s.adb;
+  });
+}
+
+function readSettingsDraft() {
+  const resBtn = document.querySelector("#res-seg [data-res].on");
+  const fpsBtn = document.querySelector("#fps-seg [data-fps].on");
+  const adb = document.querySelector('input[name="adb-source"]:checked');
+
+  return {
+    resolution: resBtn ? resBtn.dataset.res : state.settings.resolution,
+    bitrate: Number(bitrateInput.value),
+    fps: fpsBtn ? Number(fpsBtn.dataset.fps) : state.settings.fps,
+    adb: adb ? adb.value : state.settings.adb,
+  };
+}
+
+function applySettingsToUi() {
+  const s = state.settings;
+  $("top-res").textContent = RESOLUTIONS[s.resolution] || RESOLUTIONS.native;
+  $("top-fps").textContent = s.fps + " FPS";
+  $("top-bitrate").textContent = Number(s.bitrate).toFixed(1) + " Mbps";
+}
+
+document.querySelectorAll("#res-seg [data-res]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#res-seg [data-res]").forEach((other) => {
+      const on = other === btn;
+      other.classList.toggle("on", on);
+      other.setAttribute("aria-checked", String(on));
+    });
+  });
+});
+
+document.querySelectorAll("#fps-seg [data-fps]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#fps-seg [data-fps]").forEach((other) => {
+      const on = other === btn;
+      other.classList.toggle("on", on);
+      other.setAttribute("aria-checked", String(on));
+    });
+  });
+});
+
+bitrateInput.addEventListener("input", () => {
+  $("bitrate-value").textContent = Number(bitrateInput.value).toFixed(1) + " Mbps";
+});
+
+document.querySelectorAll("[data-folder]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    toast("Selector de carpeta no disponible en el mockup", "warn");
+  });
+});
+
+$("btn-settings-save").addEventListener("click", () => {
+  state.settings = readSettingsDraft();
+  applySettingsToUi();
+  closeDrawer(false);
+
+  const s = state.settings;
+  toast(
+    "Ajustes guardados · " + RESOLUTIONS[s.resolution] + " · " +
+      Number(s.bitrate).toFixed(1) + " Mbps · " + s.fps + " FPS",
+    "success"
+  );
+});
+
+$("btn-settings-cancel").addEventListener("click", () => closeDrawer(true));
+
+/* ---------- Pantalla Android simulada ---------- */
+const GLYPHS = {
+  phone: '<path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
+  photos: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M3 17l5-4 4 3 4-4 5 5"/>',
+  chrome: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  map: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  files: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>',
+  calc: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 7h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/>',
+  cloud: '<path d="M7 18a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 18.3 10 4 4 0 0 1 17.5 18H7z"/>',
+  video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3"/>',
+  shield: '<path d="M12 3l8 3v6c0 4.5-3.4 7.8-8 9-4.6-1.2-8-4.5-8-9V6l8-3z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19"/>',
+};
+
+function appIcon(glyph, color) {
+  return '<div class="app-item"><span class="app-icon" style="--c:' + color + '">' +
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+    GLYPHS[glyph] + "</svg></span></div>";
+}
+
+const APPS = [
+  ["phone", "#22c55e"], ["chat", "#3b82f6"], ["camera", "#64748b"], ["photos", "#f59e0b"],
+  ["chrome", "#0ea5e9"], ["mail", "#ef4444"], ["map", "#10b981"], ["music", "#f43f5e"],
+  ["clock", "#38bdf8"], ["calendar", "#8b5cf6"], ["files", "#eab308"], ["calc", "#14b8a6"],
+  ["cloud", "#0284c7"], ["video", "#f97316"], ["shield", "#84cc16"], ["gear", "#94a3b8"],
+];
+
+const DOCK = [
+  ["phone", "#22c55e"], ["chat", "#3b82f6"], ["chrome", "#0ea5e9"], ["camera", "#64748b"],
+];
+
+$("app-grid").innerHTML = APPS.map((a) => appIcon(a[0], a[1])).join("");
+$("dock").innerHTML = DOCK.map((a) => appIcon(a[0], a[1])).join("");
+
+/* ---------- Captura simulada ---------- */
+function capture() {
+  const flash = $("screen-flash");
+  flash.classList.remove("on");
+  void flash.offsetWidth;
+  flash.classList.add("on");
+  toast("Captura guardada · PNG " + RESOLUTIONS[state.settings.resolution], "success");
+}
+
+railCapture.addEventListener("click", capture);
+
+/* ---------- Grabación simulada ---------- */
+function fmtTime(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+}
+
+function updateRecTime() {
+  const seconds = Math.max(0, Math.floor((Date.now() - state.recStarted) / 1000));
+  const text = fmtTime(seconds);
+  $("rec-pill-time").textContent = text;
+  $("stage-rec-time").textContent = text;
+  recPill.title = "Detener grabación · " + text;
+}
+
+function startRecording() {
+  if (state.recording) return;
+  state.recording = true;
+  state.recStarted = Date.now();
+  app.classList.add("recording");
+
+  railRecord.classList.add("recording");
+  railRecord.dataset.tip = "Detener";
+  railRecord.title = "Detener grabación";
+  railRecord.setAttribute("aria-label", "Detener grabación");
+  railRecord.setAttribute("aria-pressed", "true");
+
+  updateRecTime();
+  state.recTimer = setInterval(updateRecTime, 500);
+  toast("Grabando vídeo · MP4 solo vídeo", "danger");
+}
+
+function stopRecording(silent) {
+  if (!state.recording) return;
+
+  const seconds = Math.max(0, Math.floor((Date.now() - state.recStarted) / 1000));
+  state.recording = false;
+  clearInterval(state.recTimer);
+  state.recTimer = null;
+
+  app.classList.remove("recording");
+  railRecord.classList.remove("recording");
+  railRecord.dataset.tip = "Grabar";
+  railRecord.title = "Grabar vídeo (MP4)";
+  railRecord.setAttribute("aria-label", "Grabar vídeo");
+  railRecord.setAttribute("aria-pressed", "false");
+  recPill.title = "Detener grabación";
+
+  if (!silent) {
+    toast(
+      "Grabación guardada · MP4 " + fmtTime(seconds) + " · " +
+        RESOLUTIONS[state.settings.resolution],
+      "success"
+    );
+  }
+}
+
+railRecord.addEventListener("click", () => {
+  if (state.recording) stopRecording(false);
+  else startRecording();
+});
+recPill.addEventListener("click", () => stopRecording(false));
+$("stage-rec").addEventListener("click", () => stopRecording(false));
+
+/* ---------- Rotación ---------- */
+function setRotation(landscape) {
+  state.landscape = landscape;
+  screenEl.classList.toggle("landscape", landscape);
+  screenEl.classList.add("rotating");
+
+  const rotateBtn = $("tool-rotate");
+  rotateBtn.classList.toggle("active", landscape);
+  rotateBtn.title = landscape ? "Rotar a vertical" : "Rotar a horizontal";
+  rotateBtn.setAttribute("aria-label", landscape ? "Rotar a vertical" : "Rotar a horizontal");
+
+  fitScreen();
+  setTimeout(() => {
+    fitScreen();
+    screenEl.classList.remove("rotating");
+  }, 340);
+}
+
+$("tool-rotate").addEventListener("click", () => {
+  setRotation(!state.landscape);
+  toast(
+    state.landscape ? "Rotación · horizontal · 2400×1080" : "Rotación · vertical · 1080×2400",
+    "info"
+  );
+});
+
+/* ---------- Navegación Android simulada ---------- */
+$("tool-back").addEventListener("click", () => toast("Atrás · evento enviado al dispositivo", "info"));
+$("tool-home").addEventListener("click", () => toast("Home · evento enviado al dispositivo", "info"));
+$("tool-recents").addEventListener("click", () => toast("Recientes · evento enviado al dispositivo", "info"));
+
+/* ---------- Pantalla completa ---------- */
+function setFullscreen(on) {
+  if (on) closeDrawer(false);
+
+  state.fullscreen = on;
+  app.classList.toggle("fullscreen", on);
+
+  const btn = $("tool-fullscreen");
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", String(on));
+  btn.title = on ? "Salir de pantalla completa (Esc)" : "Pantalla completa";
+  btn.setAttribute("aria-label", on ? "Salir de pantalla completa" : "Pantalla completa");
+
+  if (on) toast("Pantalla completa · Esc para salir", "info");
+  updateRail();
+
+  requestAnimationFrame(fitScreen);
+  setTimeout(fitScreen, 320);
+}
+
+$("tool-fullscreen").addEventListener("click", () => setFullscreen(!state.fullscreen));
+$("fs-hint").addEventListener("click", () => setFullscreen(false));
+
+/* ---------- Teclado ---------- */
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+
+  if (!$("auth-modal").hidden) {
+    closeAuth();
+  } else if (state.drawer) {
+    closeDrawer(true);
+  } else if (state.fullscreen) {
+    setFullscreen(false);
+  }
+});
+
+/* ---------- Init ---------- */
+updateClock();
+setInterval(updateClock, 15000);
+$("rsa-fingerprint").textContent = randomFingerprint();
+
+applySettingsToUi();
+$("last-scan").textContent = "Último escaneo: " + new Date().toLocaleTimeString("es-ES");
+updateRail();
+
+applyAppSize();
+layoutDrawer();
+fitScreen();
+
+if ("ResizeObserver" in window) {
+  let raf = 0;
+  new ResizeObserver(() => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(fitScreen);
+  }).observe(stage);
+
+  new ResizeObserver(() => {
+    layoutDrawer();
+  }).observe(app);
+}
+
+window.addEventListener("resize", () => {
+  applyAppSize();
+  layoutDrawer();
+  fitScreen();
+});
+window.addEventListener("load", () => {
+  layoutDrawer();
+  fitScreen();
+});
+setTimeout(fitScreen, 60);
+setTimeout(layoutDrawer, 60);
+</script>
+</body>
+</html>

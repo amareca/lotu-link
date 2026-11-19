@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "name": "pixel-portrait",
+  "loop": true,
+  "device": {
+    "serial": "REPLAY0001",
+    "name": "Pixel 8 Pro (replay)",
+    "state": "connected",
+    "androidVersion": "15",
+    "resolution": { "width": 1080, "height": 2400 },
+    "batteryPercent": 85,
+    "transport": "usb"
+  }
+}

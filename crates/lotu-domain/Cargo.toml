@@ -1,0 +1,8 @@
+[package]
+name = "lotu-domain"
+version.workspace = true
+edition.workspace = true
+description = "LOTU Link domain entities and invariants"
+
+[dependencies]
+thiserror.workspace = true

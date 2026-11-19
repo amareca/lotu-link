@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="LOTU Link">
+  <title>LOTU Link</title>
+  <!-- Source artwork for `pnpm tauri icon`. Square 1024x1024, slate background, lime mark. -->
+  <rect width="1024" height="1024" rx="232" fill="#0f172a"/>
+  <g transform="rotate(-45 512 512)" fill="none" stroke="#a3e635" stroke-width="64">
+    <rect x="192" y="437" width="340" height="150" rx="75"/>
+    <rect x="492" y="437" width="340" height="150" rx="75"/>
+  </g>
+</svg>

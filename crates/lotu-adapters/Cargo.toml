@@ -1,0 +1,15 @@
+[package]
+name = "lotu-adapters"
+version.workspace = true
+edition.workspace = true
+description = "LOTU Link adapters for ADB and platform integration"
+
+[dependencies]
+lotu-domain.workspace = true
+lotu-app.workspace = true
+async-trait.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true

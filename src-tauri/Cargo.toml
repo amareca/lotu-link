@@ -1,0 +1,34 @@
+[package]
+name = "lotu-link"
+version.workspace = true
+edition.workspace = true
+description = "LOTU Link desktop application"
+
+[lib]
+name = "lotu_link_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+lotu-domain.workspace = true
+lotu-app.workspace = true
+lotu-adapters.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
+rand.workspace = true
+serde.workspace = true
+tauri.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+tauri-plugin-clipboard-manager = "2"
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[features]
+# Kept for the standard Tauri production build path. Not enabled by default so
+# `cargo test` keeps using the dev server/asset configuration.
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,10 @@
+# Documentación de diseño (no se sube)
+docs/
+
+# Artefactos de build y dependencias
+node_modules/
+target/
+dist/
+*.log
+.DS_Store
+Thumbs.db

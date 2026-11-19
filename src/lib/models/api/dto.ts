@@ -1,0 +1,237 @@
+export type DeviceStateDto = "connected" | "unauthorized" | "offline";
+
+export interface ResolutionDto {
+  width: number;
+  height: number;
+}
+
+export interface DeviceDto {
+  serial: string;
+  name: string;
+  state: DeviceStateDto;
+  androidVersion: string | null;
+  resolution: ResolutionDto | null;
+  batteryPercent: number | null;
+  transport: "usb";
+}
+
+export type ErrorCode =
+  | "adb_unavailable"
+  | "adb_timeout"
+  | "adb_failed"
+  | "replay_unavailable"
+  | "fixture_invalid"
+  | "device_not_found"
+  | "device_not_connected"
+  | "vendor_missing"
+  | "session_timeout"
+  | "session_failed"
+  | "session_inactive"
+  | "input_invalid"
+  | "input_failed"
+  | "internal";
+
+export interface ErrorDto {
+  code: ErrorCode;
+  message: string;
+}
+
+/** Mirror of `SessionDto` in `lotu-app` for both `start_session` and `start_replay`. */
+export interface SessionDto {
+  wsUrl: string;
+  device: DeviceDto;
+}
+
+/** M0b alias: the replay command returns the same payload as a live session. */
+export type ReplaySessionDto = SessionDto;
+
+/** M2 input contracts (mirrors of the Rust DTOs in `lotu-app`). */
+export type PointerAction = "down" | "move" | "up";
+export type KeyAction = "down" | "up";
+
+export interface PointerInput {
+  action: PointerAction;
+  x: number;
+  y: number;
+  screenWidth: number;
+  screenHeight: number;
+  pressure: number;
+  buttons: number;
+  actionButton: number;
+}
+
+export interface ScrollInput {
+  x: number;
+  y: number;
+  screenWidth: number;
+  screenHeight: number;
+  hScroll: number;
+  vScroll: number;
+  buttons: number;
+}
+
+export interface KeyInput {
+  action: KeyAction;
+  keycode: number;
+  repeat: number;
+  metaState: number;
+}
+
+const DEVICE_STATES: readonly DeviceStateDto[] = [
+  "connected",
+  "unauthorized",
+  "offline",
+];
+
+const ERROR_CODES: readonly ErrorCode[] = [
+  "adb_unavailable",
+  "adb_timeout",
+  "adb_failed",
+  "replay_unavailable",
+  "fixture_invalid",
+  "device_not_found",
+  "device_not_connected",
+  "vendor_missing",
+  "session_timeout",
+  "session_failed",
+  "session_inactive",
+  "input_invalid",
+  "input_failed",
+  "internal",
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isDeviceState(value: unknown): value is DeviceStateDto {
+  return (
+    typeof value === "string" &&
+    (DEVICE_STATES as readonly string[]).includes(value)
+  );
+}
+
+function isErrorCode(value: unknown): value is ErrorCode {
+  return (
+    typeof value === "string" &&
+    (ERROR_CODES as readonly string[]).includes(value)
+  );
+}
+
+function parseOptionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function parseResolution(value: unknown): ResolutionDto | null {
+  if (!isRecord(value)) return null;
+
+  const { width, height } = value;
+  if (typeof width !== "number" || typeof height !== "number") return null;
+  if (!Number.isInteger(width) || !Number.isInteger(height)) return null;
+  if (width <= 0 || height <= 0) return null;
+
+  return { width, height };
+}
+
+function parseBatteryPercent(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value)) return null;
+  if (value < 0 || value > 100) return null;
+
+  return value;
+}
+
+/**
+ * Validates one `DeviceDto` as serialized by Rust (`serde(rename_all = "camelCase")`).
+ * Throws when the required fields break the contract; optional fields degrade to null.
+ */
+export function parseDeviceDto(value: unknown): DeviceDto {
+  if (!isRecord(value)) {
+    throw new Error("Invalid device payload: expected an object");
+  }
+
+  const { serial, name, state, transport } = value;
+  if (typeof serial !== "string" || serial.length === 0) {
+    throw new Error("Invalid device payload: missing serial");
+  }
+  if (typeof name !== "string" || name.length === 0) {
+    throw new Error("Invalid device payload: missing name");
+  }
+  if (!isDeviceState(state)) {
+    throw new Error("Invalid device payload: unknown state");
+  }
+  if (transport !== "usb") {
+    throw new Error("Invalid device payload: unknown transport");
+  }
+
+  return {
+    serial,
+    name,
+    state,
+    androidVersion: parseOptionalString(value.androidVersion),
+    resolution: parseResolution(value.resolution),
+    batteryPercent: parseBatteryPercent(value.batteryPercent),
+    transport: "usb",
+  };
+}
+
+export function parseDeviceDtos(value: unknown): DeviceDto[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid devices payload: expected an array");
+  }
+
+  return value.map((device) => parseDeviceDto(device));
+}
+
+/**
+ * Validates one session payload (`start_session` / `start_replay`). The URL is
+ * only checked for shape (absolute WebSocket URL); the token and binding are a
+ * Rust concern.
+ */
+export function parseSessionDto(value: unknown): SessionDto {
+  if (!isRecord(value)) {
+    throw new Error("Invalid session payload: expected an object");
+  }
+
+  const { wsUrl } = value;
+  if (typeof wsUrl !== "string" || wsUrl.length === 0) {
+    throw new Error("Invalid session payload: missing wsUrl");
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(wsUrl);
+  } catch {
+    throw new Error("Invalid session payload: wsUrl is not an absolute URL");
+  }
+  if (parsedUrl.protocol !== "ws:" && parsedUrl.protocol !== "wss:") {
+    throw new Error("Invalid session payload: wsUrl must use ws or wss");
+  }
+
+  return { wsUrl, device: parseDeviceDto(value.device) };
+}
+
+/** M0b entry point; kept as a delegate so replay callers stay unchanged. */
+export function parseReplaySessionDto(value: unknown): ReplaySessionDto {
+  return parseSessionDto(value);
+}
+
+export function isErrorDto(value: unknown): value is ErrorDto {
+  return (
+    isRecord(value) &&
+    isErrorCode(value.code) &&
+    typeof value.message === "string"
+  );
+}
+
+/** Normalizes any rejection into the stable `ErrorDto` shape used by the UI. */
+export function toErrorDto(value: unknown): ErrorDto {
+  if (isErrorDto(value)) return value;
+  if (value instanceof Error) {
+    return { code: "internal", message: value.message };
+  }
+  if (typeof value === "string") {
+    return { code: "internal", message: value };
+  }
+
+  return { code: "internal", message: "Unexpected error" };
+}
