@@ -1,6 +1,6 @@
 use lotu_adapters::replay::FixtureError;
 use lotu_app::ports::device_catalog::CatalogError;
-use lotu_app::ports::{InputError, SessionError};
+use lotu_app::ports::{CaptureError, InputError, RecordingError, SessionError};
 use serde::Serialize;
 
 /// Stable error codes consumed by the frontend.
@@ -20,6 +20,14 @@ pub enum ErrorCode {
     SessionInactive,
     InputInvalid,
     InputFailed,
+    CaptureTimeout,
+    CaptureInvalid,
+    CaptureFailed,
+    RecordingAlreadyActive,
+    RecordingInactive,
+    RecordingFailed,
+    UserCancelled,
+    IoFailed,
     Internal,
 }
 
@@ -88,6 +96,32 @@ impl From<InputError> for ErrorDto {
     }
 }
 
+/// Screenshot failures of M3.
+impl From<CaptureError> for ErrorDto {
+    fn from(error: CaptureError) -> Self {
+        match error {
+            CaptureError::Timeout => Self::new(ErrorCode::CaptureTimeout, error.to_string()),
+            CaptureError::Invalid(_) => Self::new(ErrorCode::CaptureInvalid, error.to_string()),
+            CaptureError::Failed(_) => Self::new(ErrorCode::CaptureFailed, error.to_string()),
+        }
+    }
+}
+
+/// Recording failures of M3.
+impl From<RecordingError> for ErrorDto {
+    fn from(error: RecordingError) -> Self {
+        match error {
+            RecordingError::AlreadyActive => {
+                Self::new(ErrorCode::RecordingAlreadyActive, error.to_string())
+            }
+            RecordingError::Inactive => Self::new(ErrorCode::RecordingInactive, error.to_string()),
+            RecordingError::Invalid(_) | RecordingError::Failed(_) => {
+                Self::new(ErrorCode::RecordingFailed, error.to_string())
+            }
+        }
+    }
+}
+
 /// Every fixture problem (missing file, bad container, bad metadata) is a
 /// development-time configuration error with a single stable code.
 impl From<FixtureError> for ErrorDto {
@@ -135,6 +169,17 @@ mod tests {
             (ErrorCode::SessionInactive, "session_inactive"),
             (ErrorCode::InputInvalid, "input_invalid"),
             (ErrorCode::InputFailed, "input_failed"),
+            (ErrorCode::CaptureTimeout, "capture_timeout"),
+            (ErrorCode::CaptureInvalid, "capture_invalid"),
+            (ErrorCode::CaptureFailed, "capture_failed"),
+            (
+                ErrorCode::RecordingAlreadyActive,
+                "recording_already_active",
+            ),
+            (ErrorCode::RecordingInactive, "recording_inactive"),
+            (ErrorCode::RecordingFailed, "recording_failed"),
+            (ErrorCode::UserCancelled, "user_cancelled"),
+            (ErrorCode::IoFailed, "io_failed"),
             (ErrorCode::Internal, "internal"),
         ];
 
@@ -144,6 +189,30 @@ mod tests {
             assert_eq!(value["code"], expected);
             assert_eq!(value["message"], "diagnostic");
         }
+    }
+
+    #[test]
+    fn maps_capture_and_recording_errors_to_stable_codes() {
+        assert_eq!(
+            ErrorDto::from(CaptureError::Timeout).code,
+            ErrorCode::CaptureTimeout
+        );
+        assert_eq!(
+            ErrorDto::from(CaptureError::Invalid("bad png".to_owned())).code,
+            ErrorCode::CaptureInvalid
+        );
+        assert_eq!(
+            ErrorDto::from(RecordingError::AlreadyActive).code,
+            ErrorCode::RecordingAlreadyActive
+        );
+        assert_eq!(
+            ErrorDto::from(RecordingError::Inactive).code,
+            ErrorCode::RecordingInactive
+        );
+        assert_eq!(
+            ErrorDto::from(RecordingError::Failed("io".to_owned())).code,
+            ErrorCode::RecordingFailed
+        );
     }
 
     #[test]

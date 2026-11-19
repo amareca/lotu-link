@@ -7,7 +7,10 @@ import {
   type KeyInput,
   type PointerAction,
   type PointerInput,
+  type RecordingDto,
+  type RecordingStateDto,
   type ResolutionDto,
+  type ScreenshotDto,
   type ScrollInput,
   type SessionDto,
 } from "../models/api/dto";
@@ -82,6 +85,14 @@ export class SessionViewModel {
   errorMessage = $derived(this.error?.message ?? null);
   /** Last input delivery problem; never changes `phase` (§3.4). */
   inputNotice = $state<ErrorDto | null>(null);
+  /** M3: last capture/recording problem; never changes `phase`. */
+  captureNotice = $state<ErrorDto | null>(null);
+  /** M3: authoritative recording slot (also updated by the backend event). */
+  recording = $state<RecordingStateDto | null>(null);
+  /** M3: elapsed milliseconds, refreshed while recording. */
+  recordingElapsed = $state(0);
+  /** Transient toast shown by the view; owned here so any view can raise it. */
+  toast = $state<string | null>(null);
   /** Input is only meaningful while a live stream is decoding. */
   inputEnabled = $derived(
     this.phase === "streaming" && this.origin === "live" && this.resolution !== null,
@@ -112,10 +123,24 @@ export class SessionViewModel {
   } | null = null;
   #rafId: number | null = null;
   #frameTimer: ReturnType<typeof setTimeout> | null = null;
+  #unlistenRecording: (() => void) | null = null;
+  #recordingTimer: ReturnType<typeof setInterval> | null = null;
+  #recordingStartedAt = 0;
+  #toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(api: LotuApi, media: MediaFactory) {
     this.#api = api;
     this.#media = media;
+  }
+
+  /** Shows a short, non-blocking message; newer toasts replace older ones. */
+  showToast(text: string, ms = 2800): void {
+    this.toast = text;
+    if (this.#toastTimer !== null) clearTimeout(this.#toastTimer);
+    this.#toastTimer = setTimeout(() => {
+      this.toast = null;
+      this.#toastTimer = null;
+    }, ms);
   }
 
   /**
@@ -156,6 +181,9 @@ export class SessionViewModel {
     this.fps = 0;
     this.error = null;
     this.inputNotice = null;
+    this.captureNotice = null;
+    this.recording = null;
+    this.#stopRecordingTimer();
     this.#cancelGesture();
 
     if (wasLive) {
@@ -185,6 +213,9 @@ export class SessionViewModel {
     this.fps = 0;
     this.error = null;
     this.inputNotice = null;
+    this.captureNotice = null;
+    this.recording = null;
+    this.#stopRecordingTimer();
     this.#cancelGesture();
 
     if (wasLive) {
@@ -229,6 +260,9 @@ export class SessionViewModel {
     this.resolution = null;
     this.fps = 0;
     this.inputNotice = null;
+    this.captureNotice = null;
+    this.recording = null;
+    this.#stopRecordingTimer();
     this.#cancelGesture();
 
     let session: SessionDto;
@@ -243,6 +277,10 @@ export class SessionViewModel {
     if (!this.#isCurrent(generation)) return;
 
     this.device = session.device;
+    this.#unlistenRecording = this.#api.onRecordingState((state) => {
+      if (!this.#isCurrent(generation)) return;
+      this.#applyRecordingState(state);
+    });
     if (this.#renderer === null) {
       this.#renderer = this.#media.createRenderer();
     }
@@ -475,6 +513,103 @@ export class SessionViewModel {
     }
   }
 
+  // ----- M3 capture -----------------------------------------------------
+
+  /** Saves a native-resolution PNG. Returns null on failure (view shows a toast). */
+  async capture(): Promise<ScreenshotDto | null> {
+    if (this.origin !== "live" || this.phase === "idle") return null;
+    this.captureNotice = null;
+    try {
+      const result = await this.#api.captureScreenshot();
+      if (this.#isCurrent(this.#generation)) {
+        this.captureNotice = null;
+        this.showToast(`Captura guardada · ${result.width}×${result.height}`);
+      }
+      return result;
+    } catch (cause) {
+      if (this.#isCurrent(this.#generation)) {
+        const error = errorFrom(cause);
+        this.captureNotice = error;
+        this.showToast(
+          error.code === "user_cancelled"
+            ? "Captura cancelada."
+            : "No se pudo guardar la captura.",
+        );
+      }
+      return null;
+    }
+  }
+
+  /** Starts recording. Returns null on failure or when no live session is active. */
+  async startRecording(): Promise<RecordingDto | null> {
+    if (this.origin !== "live" || this.phase === "idle") return null;
+    this.captureNotice = null;
+    try {
+      const result = await this.#api.startRecording();
+      if (this.#isCurrent(this.#generation)) {
+        this.captureNotice = null;
+        this.#applyRecordingState({ active: true, path: result.path });
+        this.showToast("Grabando… el primer fotograma clave");
+      }
+      return result;
+    } catch (cause) {
+      if (this.#isCurrent(this.#generation)) {
+        const error = errorFrom(cause);
+        this.captureNotice = error;
+        this.showToast(
+          error.code === "user_cancelled"
+            ? "Grabación cancelada."
+            : error.code === "recording_failed" || error.code === "io_failed"
+              ? `No se pudo iniciar: ${error.message}`
+              : `No se pudo iniciar la grabación (${error.code}).`,
+        );
+      }
+      return null;
+    }
+  }
+
+  /** Finalizes the recording and stops the local elapsed timer. */
+  async stopRecording(): Promise<RecordingDto | null> {
+    this.captureNotice = null;
+    try {
+      const result = await this.#api.stopRecording();
+      if (this.#isCurrent(this.#generation)) {
+        this.captureNotice = null;
+        this.#applyRecordingState({ active: false, path: result.path });
+        this.showToast("Grabación guardada.");
+      }
+      return result;
+    } catch (cause) {
+      if (this.#isCurrent(this.#generation)) {
+        this.captureNotice = errorFrom(cause);
+        this.showToast("No se pudo guardar la grabación.");
+      }
+      return null;
+    }
+  }
+
+  #applyRecordingState(state: RecordingStateDto): void {
+    this.recording = state;
+    if (state.active) {
+      if (this.#recordingTimer === null) {
+        this.#recordingStartedAt = Date.now();
+        this.recordingElapsed = 0;
+        this.#recordingTimer = setInterval(() => {
+          this.recordingElapsed = Date.now() - this.#recordingStartedAt;
+        }, 250);
+      }
+    } else {
+      this.#stopRecordingTimer();
+      this.recordingElapsed = 0;
+    }
+  }
+
+  #stopRecordingTimer(): void {
+    if (this.#recordingTimer === null) return;
+    clearInterval(this.#recordingTimer);
+    this.#recordingTimer = null;
+  }
+
   #map(event: PointerEventData | WheelEventData): Point | null {
     const resolution = this.resolution;
     if (resolution === null) return null;
@@ -610,7 +745,17 @@ export class SessionViewModel {
 
   #teardown(): void {
     this.#stopFpsTimer();
+    this.#stopRecordingTimer();
+    if (this.#toastTimer !== null) {
+      clearTimeout(this.#toastTimer);
+      this.#toastTimer = null;
+    }
+    this.toast = null;
     this.#frameCount = 0;
+
+    const unlisten = this.#unlistenRecording;
+    this.#unlistenRecording = null;
+    unlisten?.();
 
     const client = this.#client;
     this.#client = null;

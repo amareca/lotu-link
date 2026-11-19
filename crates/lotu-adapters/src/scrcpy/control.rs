@@ -32,6 +32,8 @@ const TYPE_ROTATE_DEVICE: u8 = 11;
 const TYPE_GET_CLIPBOARD: u8 = 8;
 /// Type byte of `SetClipboard`.
 const TYPE_SET_CLIPBOARD: u8 = 9;
+/// Type byte of `ResetVideo`; the whole message is this byte.
+const TYPE_RESET_VIDEO: u8 = 17;
 
 /// `SC_CONTROL_MSG_CLIPBOARD_TEXT_MAX_LENGTH` (256 KiB minus type/sequence/paste/length).
 const MAX_CLIPBOARD_BYTES: usize = (1 << 18) - 14;
@@ -87,6 +89,7 @@ pub fn encode(message: &InputMessage) -> Result<Vec<u8>, InputError> {
         InputMessage::Rotate => Ok(vec![TYPE_ROTATE_DEVICE]),
         InputMessage::SetClipboard { text, paste } => encode_set_clipboard(text, *paste),
         InputMessage::GetClipboard { copy_key } => encode_get_clipboard(*copy_key),
+        InputMessage::ResetVideo => Ok(vec![TYPE_RESET_VIDEO]),
     }
 }
 
@@ -701,6 +704,12 @@ mod tests {
         assert_eq!(bytes[9], 1);
         assert_eq!(&bytes[10..14], &4u32.to_be_bytes());
         assert_eq!(&bytes[14..], b"hola");
+    }
+
+    #[test]
+    fn reset_video_is_a_single_type_byte() {
+        assert_eq!(encode_ok(&InputMessage::ResetVideo), vec![TYPE_RESET_VIDEO]);
+        assert_eq!(TYPE_RESET_VIDEO, 17);
     }
 
     #[test]

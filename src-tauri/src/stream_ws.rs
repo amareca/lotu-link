@@ -24,6 +24,7 @@ use std::sync::Arc;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use lotu_app::ports::{FrameSource, SessionStream, StreamMessage};
+use lotu_app::services::RecordingService;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
 use tokio_tungstenite::tungstenite::http::StatusCode;
@@ -99,6 +100,8 @@ pub struct ReplayServer {
     hello: String,
     token: String,
     source: ServedSource,
+    /// M3 frame tap; replay sessions have none.
+    recording: Option<Arc<RecordingService>>,
 }
 
 impl ReplayServer {
@@ -122,7 +125,18 @@ impl ReplayServer {
         hello: impl Into<String>,
         stream: Box<dyn SessionStream>,
     ) -> Result<Self, StreamError> {
-        Self::bind_source(hello, ServedSource::Live(stream)).await
+        Self::bind_live_with_recording(hello, stream, None).await
+    }
+
+    /// Live variant with the M3 frame tap installed.
+    pub async fn bind_live_with_recording(
+        hello: impl Into<String>,
+        stream: Box<dyn SessionStream>,
+        recording: Option<Arc<RecordingService>>,
+    ) -> Result<Self, StreamError> {
+        let mut server = Self::bind_source(hello, ServedSource::Live(stream)).await?;
+        server.recording = recording;
+        Ok(server)
     }
 
     async fn bind_source(
@@ -140,6 +154,7 @@ impl ReplayServer {
             hello: hello.into(),
             token: random_token(),
             source,
+            recording: None,
         })
     }
 
@@ -161,6 +176,7 @@ impl ReplayServer {
             hello,
             token,
             source,
+            recording,
         } = self;
 
         let listener = Arc::new(listener);
@@ -246,6 +262,13 @@ impl ReplayServer {
                     source_done = true;
                 }
                 Event::Source(Some(message)) => {
+                    // M3: tap every normalized message before the reconnect
+                    // keyframe filter, so a recording has no gaps.
+                    if let Some(recording) = &recording {
+                        if let Err(error) = recording.observe(&message) {
+                            eprintln!("recording tap failed: {error}");
+                        }
+                    }
                     if awaiting_keyframe {
                         match &message {
                             // A new encoder configuration arrives before its

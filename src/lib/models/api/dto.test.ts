@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   parseDeviceDto,
   parseDeviceDtos,
+  parseRecordingDto,
+  parseRecordingStateDto,
   parseReplaySessionDto,
+  parseScreenshotDto,
   parseSessionDto,
   toErrorDto,
   type DeviceDto,
@@ -203,6 +206,49 @@ describe("parseSessionDto", () => {
         wsUrl: "file:///tmp/stream",
       }),
     ).toThrow(/ws or wss/);
+  });
+});
+
+describe("M3 capture and recording DTOs", () => {
+  it("parses a screenshot with native dimensions", () => {
+    expect(parseScreenshotDto({ path: "shot.png", width: 1080, height: 2400 })).toEqual({
+      path: "shot.png",
+      width: 1080,
+      height: 2400,
+    });
+    expect(() => parseScreenshotDto({ path: "shot.png", width: 0, height: 10 })).toThrow();
+  });
+
+  it("parses recording statistics and state", () => {
+    expect(parseRecordingDto({ path: "clip.mp4", frames: 120, durationUs: 4_000_000 })).toEqual({
+      path: "clip.mp4",
+      frames: 120,
+      durationUs: 4_000_000,
+    });
+    expect(() =>
+      parseRecordingDto({ path: "clip.mp4", frames: -1, durationUs: 0 }),
+    ).toThrow();
+    expect(parseRecordingStateDto({ active: true, path: "clip.mp4" })).toEqual({
+      active: true,
+      path: "clip.mp4",
+    });
+    expect(parseRecordingStateDto(null)).toEqual({ active: false, path: null });
+  });
+
+  it("accepts the M3 error codes", () => {
+    const codes = [
+      "capture_timeout",
+      "capture_invalid",
+      "capture_failed",
+      "recording_already_active",
+      "recording_inactive",
+      "recording_failed",
+      "user_cancelled",
+      "io_failed",
+    ] as const;
+    for (const code of codes) {
+      expect(toErrorDto({ code, message: "diagnostic" }).code).toBe(code);
+    }
   });
 });
 

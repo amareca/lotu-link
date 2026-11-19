@@ -24,6 +24,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 tauri-plugin-clipboard-manager = "2"
+tauri-plugin-dialog = "2"
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -111,8 +111,9 @@ mod tests {
 
     use async_trait::async_trait;
     use futures_util::StreamExt;
-    use lotu_app::ports::{CatalogError, DeviceCatalog, VideoSource};
-    use lotu_app::services::{DeviceService, SessionService};
+    use lotu_adapters::media::Mp4Recorder;
+    use lotu_app::ports::{CatalogError, DeviceCatalog, ScreenshotCapture, VideoSource};
+    use lotu_app::services::{DeviceService, RecordingService, SessionService};
     use lotu_domain::{Device, DeviceState};
     use tokio_tungstenite::{connect_async, tungstenite::Message};
 
@@ -143,13 +144,28 @@ mod tests {
         }
     }
 
+    struct UnusedCapture;
+
+    #[async_trait]
+    impl ScreenshotCapture for UnusedCapture {
+        async fn capture(
+            &self,
+            _serial: &lotu_domain::Serial,
+        ) -> Result<lotu_app::ports::PngImage, lotu_app::ports::CaptureError> {
+            Err(lotu_app::ports::CaptureError::Failed("unused".to_owned()))
+        }
+    }
+
     fn app_state() -> AppState {
         let catalog: Arc<dyn DeviceCatalog> = Arc::new(EmptyCatalog);
         let video: Arc<dyn VideoSource> = Arc::new(UnusedVideoSource);
+        let capture: Arc<dyn ScreenshotCapture> = Arc::new(UnusedCapture);
 
         AppState::new(
             DeviceService::new(Arc::clone(&catalog)),
             SessionService::new(catalog, video),
+            capture,
+            Arc::new(RecordingService::new(Box::new(Mp4Recorder::new()))),
         )
     }
 

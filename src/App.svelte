@@ -239,7 +239,7 @@
     <Topbar label={connectionLabel} tone={connectionTone} />
 
     <div class="app-body">
-      <Rail {app} />
+      <Rail {app} {session} />
       <MirrorView {session} />
 
       {#if app.drawer !== null}

@@ -22,6 +22,9 @@ pub const FORWARD_TIMEOUT: Duration = Duration::from_secs(5);
 /// Budget for `adb shell` used by the session cleanup (`rm -f`, 4.5 step 4).
 pub const SESSION_SHELL_TIMEOUT: Duration = Duration::from_secs(2);
 
+/// Budget for a native PNG screenshot (`docs/m3-contract.md`).
+pub const SCREENCAP_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// ADB-backed [`DeviceCatalog`].
 #[derive(Debug, Clone)]
 pub struct SystemAdb {
@@ -166,6 +169,22 @@ impl SystemAdb {
     pub async fn shell(&self, serial: &Serial, args: &[&str]) -> Result<String, CatalogError> {
         self.run_session(serial, shell_invocation(args), SESSION_SHELL_TIMEOUT)
             .await
+    }
+
+    /// `adb exec-out screencap -p`: raw PNG bytes on stdout, at native resolution.
+    ///
+    /// `exec-out` is intentional: unlike `shell`, it does not allocate a PTY on
+    /// the device, so LF bytes are not expanded to CRLF and the PNG stays valid.
+    pub async fn screencap(&self, serial: &Serial) -> Result<Vec<u8>, CatalogError> {
+        let mut command = self.command(Some(serial), ["exec-out", "screencap", "-p"]);
+        match timeout(SCREENCAP_TIMEOUT, command.output()).await {
+            Err(_) => Err(CatalogError::Timeout),
+            Ok(Err(error)) => Err(CatalogError::from(AdbFailure::from_spawn(error))),
+            Ok(Ok(output)) if !output.status.success() => {
+                Err(CatalogError::from(AdbFailure::from_output(&output)))
+            }
+            Ok(Ok(output)) => Ok(output.stdout),
+        }
     }
 
     async fn android_version(&self, serial: &Serial) -> Option<String> {

@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use lotu_adapters::adb::SystemAdb;
+use lotu_adapters::media::{AdbScreenshotCapture, Mp4Recorder};
 use lotu_adapters::platform;
 use lotu_adapters::scrcpy::ScrcpyVideoSource;
-use lotu_app::ports::{DeviceCatalog, VideoSource};
-use lotu_app::services::{DeviceService, SessionService};
+use lotu_app::ports::{DeviceCatalog, ScreenshotCapture, VideoSource};
+use lotu_app::services::{DeviceService, RecordingService, SessionService};
 
 use crate::state::AppState;
 
@@ -24,9 +25,13 @@ pub fn build_app_state() -> AppState {
         Arc::clone(&adb),
         platform::scrcpy_server_path(),
     ));
+    let capture: Arc<dyn ScreenshotCapture> = Arc::new(AdbScreenshotCapture::new(Arc::clone(&adb)));
+    let recording = Arc::new(RecordingService::new(Box::new(Mp4Recorder::new())));
 
     AppState::new(
         DeviceService::new(Arc::clone(&catalog)),
         SessionService::new(catalog, video),
+        capture,
+        recording,
     )
 }

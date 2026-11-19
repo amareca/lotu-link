@@ -5,6 +5,9 @@ import type {
   KeyInput,
   PointerInput,
   ReplaySessionDto,
+  RecordingDto,
+  RecordingStateDto,
+  ScreenshotDto,
   ScrollInput,
   SessionDto,
 } from "./dto";
@@ -32,6 +35,13 @@ export interface LotuApi {
   pasteText(text: string): Promise<void>;
   /** M3: returns the device clipboard after injecting COPY. */
   copyText(): Promise<string>;
+  /** M3: saves a native-resolution PNG chosen in the OS dialog. */
+  captureScreenshot(): Promise<ScreenshotDto>;
+  /** M3: starts/stops the MP4 recording of the live stream. */
+  startRecording(): Promise<RecordingDto>;
+  stopRecording(): Promise<RecordingDto>;
+  /** M3: backend-driven state, also emitted on session stop. */
+  onRecordingState(listener: (state: RecordingStateDto) => void): () => void;
 }
 
 /** UI-facing error. Keeps the Rust `ErrorDto` available for localization by `code`. */

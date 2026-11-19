@@ -286,6 +286,10 @@ describe("SessionViewModel", () => {
       rotate: async () => {},
       pasteText: async () => {},
       copyText: async () => "",
+      captureScreenshot: async () => ({ path: "capture.png", width: 1080, height: 2400 }),
+      startRecording: async () => ({ path: "clip.mp4", frames: 0, durationUs: 0 }),
+      stopRecording: async () => ({ path: "clip.mp4", frames: 1, durationUs: 16_000 }),
+      onRecordingState: () => () => {},
     };
     const media = createMedia();
     const session = new SessionViewModel(api, media.factory);
@@ -860,6 +864,60 @@ describe("SessionViewModel live sessions", () => {
 
     session.pasteText("texto del PC");
     await vi.waitFor(() => expect(api.pasteCalls).toEqual(["texto del PC"]));
+
+    session.dispose();
+  });
+
+  it("captures a PNG and drives the MP4 recording lifecycle", async () => {
+    const api = new FakeApi({
+      session: LIVE_SESSION,
+      screenshotResult: {
+        path: "captures/shot.png",
+        width: 1080,
+        height: 2400,
+      },
+    });
+    const media = createMedia();
+    const session = new SessionViewModel(api, media.factory);
+    await session.startSession("PIXEL8PRO");
+    const client = last(media.clients);
+    client.emit(CONFIG);
+    client.emit(FRAME);
+
+    expect(await session.capture()).toEqual({
+      path: "captures/shot.png",
+      width: 1080,
+      height: 2400,
+    });
+    expect(api.captureCalls).toBe(1);
+
+    const started = await session.startRecording();
+    expect(started?.frames).toBe(0);
+    expect(api.startRecordingCalls).toBe(1);
+    expect(session.recording?.active).toBe(true);
+
+    const stopped = await session.stopRecording();
+    expect(stopped?.frames).toBe(120);
+    expect(api.stopRecordingCalls).toBe(1);
+    expect(session.recording?.active).toBe(false);
+
+    session.dispose();
+  });
+
+  it("reports capture failures without changing the session phase", async () => {
+    const api = new FakeApi({
+      session: LIVE_SESSION,
+      captureFailure: { code: "capture_failed", message: "disk full" },
+    });
+    const media = createMedia();
+    const session = new SessionViewModel(api, media.factory);
+    await session.startSession("PIXEL8PRO");
+    last(media.clients).emit(CONFIG);
+    last(media.clients).emit(FRAME);
+
+    expect(await session.capture()).toBeNull();
+    expect(session.captureNotice?.code).toBe("capture_failed");
+    expect(session.phase).toBe("streaming");
 
     session.dispose();
   });

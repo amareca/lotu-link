@@ -20,6 +20,14 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   session_inactive: "La sesión no está activa.",
   input_invalid: "Entrada no válida.",
   input_failed: "No se pudo enviar la entrada. Reintenta.",
+  capture_timeout: "La captura tardó demasiado. Reintenta.",
+  capture_invalid: "La imagen capturada no es válida.",
+  capture_failed: "No se pudo capturar la pantalla.",
+  recording_already_active: "Ya hay una grabación en curso.",
+  recording_inactive: "No hay ninguna grabación en curso.",
+  recording_failed: "No se pudo guardar la grabación.",
+  user_cancelled: "Cancelado.",
+  io_failed: "No se pudo escribir el archivo.",
   internal: "Error interno.",
 };
 

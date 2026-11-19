@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use lotu_app::dto::DeviceDto;
-use lotu_app::ports::InputSink;
-use lotu_app::services::{DeviceService, SessionService};
+use lotu_app::ports::{InputSink, ScreenshotCapture};
+use lotu_app::services::{DeviceService, RecordingService, SessionService};
 use tauri::async_runtime::JoinHandle;
 use tokio::time::timeout;
 
@@ -36,15 +36,26 @@ pub struct SessionHandle {
 pub struct AppState {
     pub devices: DeviceService,
     pub session_service: SessionService,
+    /// M3: native PNG capture of the active device.
+    pub capture: Arc<dyn ScreenshotCapture>,
+    /// M3: the single recording slot and its frame tap.
+    pub recording: Arc<RecordingService>,
     replay: Mutex<Option<ReplayHandle>>,
     session: Mutex<Option<SessionHandle>>,
 }
 
 impl AppState {
-    pub fn new(devices: DeviceService, session_service: SessionService) -> Self {
+    pub fn new(
+        devices: DeviceService,
+        session_service: SessionService,
+        capture: Arc<dyn ScreenshotCapture>,
+        recording: Arc<RecordingService>,
+    ) -> Self {
         Self {
             devices,
             session_service,
+            capture,
+            recording,
             replay: Mutex::new(None),
             session: Mutex::new(None),
         }
@@ -91,6 +102,8 @@ impl AppState {
         if let Some(previous) = previous {
             previous.task.abort();
         }
+        // A recording belongs to one session: forget the old decoder config.
+        let _ = self.recording.reset_stream();
     }
 
     /// Aborts the live session actor, if any, and waits for it to finish.
@@ -103,6 +116,9 @@ impl AppState {
             return;
         };
 
+        // Finalize the file before the actor stops feeding it. `stop` is
+        // idempotent, so a session without recording is unaffected.
+        let _ = self.recording.stop();
         handle.task.abort();
         // The task aborts on its next await point; the join result only reports
         // the cancellation, so it carries no useful value.
@@ -116,8 +132,16 @@ impl AppState {
     /// remote cleanup (`docs/m1-contract.md` 4.5, D8).
     pub fn abort_session(&self) {
         if let Some(handle) = self.take_session() {
+            let _ = self.recording.stop();
             handle.task.abort();
         }
+    }
+
+    /// Serial of the active live session, needed by screenshot capture.
+    pub fn session_serial(&self) -> Option<String> {
+        self.session()
+            .as_ref()
+            .map(|handle| handle.device.serial.clone())
     }
 
     /// Clones the input sink of the live session, if one is active.

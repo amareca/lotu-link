@@ -22,10 +22,13 @@
   let { session }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
-  let toast = $state<string | null>(null);
-  let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   const active = $derived(session.phase !== "idle");
+  const recordingLabel = $derived(
+    `${String(Math.floor(session.recordingElapsed / 60_000)).padStart(2, "0")}:${String(
+      Math.floor((session.recordingElapsed % 60_000) / 1000),
+    ).padStart(2, "0")}`,
+  );
 
   const resolutionLabel = $derived(
     session.resolution
@@ -50,23 +53,11 @@
     session.inputNotice === null ? null : errorMessageForCode(session.inputNotice.code),
   );
 
-  function showToast(text: string): void {
-    toast = text;
-    if (toastTimer !== null) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toast = null;
-      toastTimer = null;
-    }, 2800);
-  }
-
   let lastInputNotice: string | null = null;
   $effect(() => {
     const text = inputNoticeText;
-    if (text !== null && text !== lastInputNotice) showToast(text);
+    if (text !== null && text !== lastInputNotice) session.showToast(text);
     lastInputNotice = text;
-    return () => {
-      if (toastTimer !== null) clearTimeout(toastTimer);
-    };
   });
 
   function pointerData(event: PointerEvent): PointerEventData | null {
@@ -172,32 +163,32 @@
   }
 
   async function copyFromDevice(): Promise<void> {
-    showToast("Leyendo portapapeles del móvil…");
+    session.showToast("Leyendo portapapeles del móvil…");
     const text = await session.copyText();
     if (text === null) {
-      showToast("No se pudo copiar del móvil.");
+      session.showToast("No se pudo copiar del móvil.");
       return;
     }
     try {
       await writeSystemClipboard(text);
-      showToast("Texto copiado del móvil.");
+      session.showToast("Texto copiado del móvil.");
     } catch {
-      showToast("No se pudo escribir en el portapapeles.");
+      session.showToast("No se pudo escribir en el portapapeles.");
     }
   }
 
   async function pasteToDevice(): Promise<void> {
-    showToast("Leyendo portapapeles del PC…");
+    session.showToast("Leyendo portapapeles del PC…");
     try {
       const text = await readSystemClipboard();
       if (text.length === 0) {
-        showToast("El portapapeles está vacío.");
+        session.showToast("El portapapeles está vacío.");
         return;
       }
       session.pasteText(text);
-      showToast("Texto pegado en el móvil.");
+      session.showToast("Texto pegado en el móvil.");
     } catch {
-      showToast("No se pudo leer el portapapeles.");
+      session.showToast("No se pudo leer el portapapeles.");
     }
   }
 </script>
@@ -219,6 +210,12 @@
     </span>
     {#if session.phase === "streaming"}
       <span class="mini-stat">{session.fps} FPS</span>
+    {/if}
+    {#if session.recording?.active}
+      <span class="rec-indicator" role="status">
+        <span class="rec-dot" aria-hidden="true"></span>
+        REC {recordingLabel}
+      </span>
     {/if}
     {#if session.phase !== "idle"}
       <button
@@ -345,8 +342,8 @@
     </button>
   </div>
 
-  {#if toast !== null}
-    <div class="toast" role="status">{toast}</div>
+  {#if session.toast !== null}
+    <div class="toast" role="status">{session.toast}</div>
   {/if}
 </main>
 
@@ -669,6 +666,34 @@
 
   .tool-btn:disabled {
     opacity: 0.45;
+  }
+
+  .rec-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    margin-left: auto;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .rec-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--danger);
+    animation: rec-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes rec-pulse {
+    50% {
+      opacity: 0.3;
+    }
   }
 
   .tool-sep {

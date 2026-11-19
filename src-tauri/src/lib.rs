@@ -14,6 +14,7 @@ pub fn run() {
 
     let app = match tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             commands::devices::list_devices,
@@ -27,7 +28,11 @@ pub fn run() {
             commands::input::send_back,
             commands::input::rotate,
             commands::input::paste_text,
-            commands::input::copy_text
+            commands::input::copy_text,
+            commands::capture::capture_screenshot,
+            commands::capture::start_recording,
+            commands::capture::stop_recording,
+            commands::capture::recording_state
         ])
         .build(tauri::generate_context!())
     {

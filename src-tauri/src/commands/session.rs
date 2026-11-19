@@ -6,6 +6,8 @@
 //! application service to open the stream and hands the ownership to the
 //! [`ReplayServer`] live actor. No scrcpy or ADB detail leaks here.
 
+use std::sync::Arc;
+
 use lotu_app::dto::SessionDto;
 use lotu_domain::{DeviceState, Serial, VideoConfig};
 use tauri::State;
@@ -34,8 +36,12 @@ pub async fn start_session(
 
 /// Stops the live session, if any. Idempotent.
 #[tauri::command]
-pub async fn stop_session(state: State<'_, AppState>) -> Result<(), ErrorDto> {
+pub async fn stop_session(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), ErrorDto> {
     state.stop_session_and_wait().await;
+    crate::commands::capture::emit_recording_state(&app, &state);
     Ok(())
 }
 
@@ -85,9 +91,13 @@ async fn start_session_impl(state: &AppState, raw_serial: &str) -> Result<Sessio
         .map_err(ErrorDto::from)?;
 
     // 5. Serve it through the live policy of the WebSocket actor.
-    let server = ReplayServer::bind_live(HELLO, live.stream)
-        .await
-        .map_err(|error| ErrorDto::new(ErrorCode::Internal, error.to_string()))?;
+    let server = ReplayServer::bind_live_with_recording(
+        HELLO,
+        live.stream,
+        Some(Arc::clone(&state.recording)),
+    )
+    .await
+    .map_err(|error| ErrorDto::new(ErrorCode::Internal, error.to_string()))?;
     let ws_url = server.ws_url();
     let task = tauri::async_runtime::spawn(server.run());
 
@@ -109,12 +119,13 @@ mod tests {
 
     use async_trait::async_trait;
     use futures_util::StreamExt;
+    use lotu_adapters::media::Mp4Recorder;
     use lotu_app::dto::DeviceDto;
     use lotu_app::ports::{
         CatalogError, DeviceCatalog, FrameSource, InputError, InputMessage, InputSink, LiveStream,
-        SessionError, SessionStream, StreamMessage, VideoSource,
+        ScreenshotCapture, SessionError, SessionStream, StreamMessage, VideoSource,
     };
-    use lotu_app::services::{DeviceService, SessionService};
+    use lotu_app::services::{DeviceService, RecordingService, SessionService};
     use lotu_domain::{Device, DeviceState, Resolution, Serial, VideoConfig};
     use tokio_tungstenite::tungstenite::Message;
 
@@ -202,6 +213,22 @@ mod tests {
         }
     }
 
+    struct FakeCapture;
+
+    #[async_trait]
+    impl ScreenshotCapture for FakeCapture {
+        async fn capture(
+            &self,
+            _serial: &Serial,
+        ) -> Result<lotu_app::ports::PngImage, lotu_app::ports::CaptureError> {
+            Ok(lotu_app::ports::PngImage {
+                bytes: Vec::new(),
+                width: 1080,
+                height: 2400,
+            })
+        }
+    }
+
     struct Harness {
         state: AppState,
         opens: Arc<AtomicUsize>,
@@ -216,9 +243,12 @@ mod tests {
             closes,
         });
 
+        let capture: Arc<dyn ScreenshotCapture> = Arc::new(FakeCapture);
         let state = AppState::new(
             DeviceService::new(Arc::clone(&catalog)),
             SessionService::new(catalog, video),
+            capture,
+            Arc::new(RecordingService::new(Box::new(Mp4Recorder::new()))),
         );
 
         Harness { state, opens }

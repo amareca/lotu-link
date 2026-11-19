@@ -5,7 +5,10 @@ import type {
   KeyAction,
   KeyInput,
   PointerInput,
+  RecordingDto,
+  RecordingStateDto,
   ReplaySessionDto,
+  ScreenshotDto,
   ScrollInput,
   SessionDto,
 } from "./dto";
@@ -64,6 +67,11 @@ export interface FakeApiOptions {
   inputFailure?: ErrorDto | null;
   /** M3: text returned by `copyText` (tests only). */
   clipboardText?: string | null;
+  /** M3: PNG result returned by `captureScreenshot` (tests only). */
+  screenshotResult?: ScreenshotDto | null;
+  /** M3: makes capture/recording commands reject (tests only). */
+  captureFailure?: ErrorDto | null;
+  recordingFailure?: ErrorDto | null;
 }
 
 export class FakeApi implements LotuApi {
@@ -86,6 +94,12 @@ export class FakeApi implements LotuApi {
   #copies = 0;
   #clipboardText: string;
   readonly #clipboardFailure: ErrorDto | null;
+  readonly #captureFailure: ErrorDto | null;
+  readonly #recordingFailure: ErrorDto | null;
+  readonly #screenshotResult: ScreenshotDto;
+  #captureCalls = 0;
+  #startRecordingCalls = 0;
+  #stopRecordingCalls = 0;
   readonly #delayMs: number;
 
   constructor(options: FakeApiOptions = {}) {
@@ -98,6 +112,13 @@ export class FakeApi implements LotuApi {
     this.#inputFailure = options.inputFailure ?? null;
     this.#clipboardText = options.clipboardText ?? "texto de prueba";
     this.#clipboardFailure = options.inputFailure ?? null;
+    this.#captureFailure = options.captureFailure ?? null;
+    this.#recordingFailure = options.recordingFailure ?? null;
+    this.#screenshotResult = options.screenshotResult ?? {
+      path: "captures/lotu-capture.png",
+      width: 1080,
+      height: 2400,
+    };
     this.#delayMs = options.delayMs ?? 0;
   }
 
@@ -156,6 +177,18 @@ export class FakeApi implements LotuApi {
 
   get copyCalls(): number {
     return this.#copies;
+  }
+
+  get captureCalls(): number {
+    return this.#captureCalls;
+  }
+
+  get startRecordingCalls(): number {
+    return this.#startRecordingCalls;
+  }
+
+  get stopRecordingCalls(): number {
+    return this.#stopRecordingCalls;
   }
 
   setInputFailure(failure: ErrorDto | null): void {
@@ -246,6 +279,32 @@ export class FakeApi implements LotuApi {
       throw new ApiError(this.#clipboardFailure);
     }
     return this.#clipboardText;
+  }
+
+  async captureScreenshot(): Promise<ScreenshotDto> {
+    this.#captureCalls += 1;
+    await this.#wait();
+    if (this.#captureFailure !== null) throw new ApiError(this.#captureFailure);
+    return { ...this.#screenshotResult };
+  }
+
+  async startRecording(): Promise<RecordingDto> {
+    this.#startRecordingCalls += 1;
+    await this.#wait();
+    if (this.#recordingFailure !== null) throw new ApiError(this.#recordingFailure);
+    return { path: "captures/lotu-recording.mp4", frames: 0, durationUs: 0 };
+  }
+
+  async stopRecording(): Promise<RecordingDto> {
+    this.#stopRecordingCalls += 1;
+    await this.#wait();
+    if (this.#recordingFailure !== null) throw new ApiError(this.#recordingFailure);
+    return { path: "captures/lotu-recording.mp4", frames: 120, durationUs: 4_000_000 };
+  }
+
+  onRecordingState(_listener: (state: RecordingStateDto) => void): () => void {
+    // The fake backend has no event bus; the ViewModel keeps its own state.
+    return () => {};
   }
 
   async #inputCall(record: () => void): Promise<void> {

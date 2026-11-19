@@ -41,6 +41,33 @@ pub struct SessionDto {
 /// identical, so it is the same type.
 pub type ReplaySessionDto = SessionDto;
 
+/// Result of `capture_screenshot`. Width and height are the native ones read
+/// from the PNG, not the dimensions of the streamed video (`docs/adr/0001`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenshotDto {
+    pub path: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Result of starting or stopping a recording.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingDto {
+    pub path: String,
+    pub frames: u64,
+    pub duration_us: u64,
+}
+
+/// Snapshot of the single recording slot, sent as a Tauri event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingStateDto {
+    pub active: bool,
+    pub path: Option<String>,
+}
+
 /// Action of a pointer event (`pointerdown`, `pointermove`, `pointerup`).
 ///
 /// Wire value in `docs/m2-contract.md` §3.1: lowercase strings.

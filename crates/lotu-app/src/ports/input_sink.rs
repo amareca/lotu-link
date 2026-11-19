@@ -47,6 +47,9 @@ pub enum InputMessage {
     GetClipboard {
         copy_key: u8,
     },
+    /// Asks scrcpy to resend the configuration and an immediate keyframe
+    /// (`RESET_VIDEO`, control type 17). Used when starting a recording.
+    ResetVideo,
 }
 
 /// `GET_CLIPBOARD` copy-key values (`control_msg.h` of scrcpy 5.0.1).

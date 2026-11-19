@@ -29,6 +29,14 @@ export type ErrorCode =
   | "session_inactive"
   | "input_invalid"
   | "input_failed"
+  | "capture_timeout"
+  | "capture_invalid"
+  | "capture_failed"
+  | "recording_already_active"
+  | "recording_inactive"
+  | "recording_failed"
+  | "user_cancelled"
+  | "io_failed"
   | "internal";
 
 export interface ErrorDto {
@@ -44,6 +52,62 @@ export interface SessionDto {
 
 /** M0b alias: the replay command returns the same payload as a live session. */
 export type ReplaySessionDto = SessionDto;
+
+/** M3: a PNG saved by `capture_screenshot`. */
+export interface ScreenshotDto {
+  path: string;
+  width: number;
+  height: number;
+}
+
+/** M3: a finished (or just started) MP4 recording. */
+export interface RecordingDto {
+  path: string;
+  frames: number;
+  durationUs: number;
+}
+
+/** M3: snapshot pushed by the `recording-state` Tauri event. */
+export interface RecordingStateDto {
+  active: boolean;
+  path: string | null;
+}
+
+export function parseScreenshotDto(value: unknown): ScreenshotDto {
+  if (!isRecord(value)) throw new Error("Invalid screenshot payload");
+  const { path, width, height } = value;
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error("Invalid screenshot payload: missing path");
+  }
+  if (!isNonNegativeInt(width) || !isNonNegativeInt(height) || width <= 0 || height <= 0) {
+    throw new Error("Invalid screenshot payload: bad dimensions");
+  }
+  return { path, width, height };
+}
+
+export function parseRecordingDto(value: unknown): RecordingDto {
+  if (!isRecord(value)) throw new Error("Invalid recording payload");
+  const { path, frames, durationUs } = value;
+  if (typeof path !== "string" || path.length === 0) {
+    throw new Error("Invalid recording payload: missing path");
+  }
+  if (!isNonNegativeInt(frames) || !isNonNegativeInt(durationUs)) {
+    throw new Error("Invalid recording payload: bad statistics");
+  }
+  return { path, frames, durationUs };
+}
+
+export function parseRecordingStateDto(value: unknown): RecordingStateDto {
+  if (!isRecord(value)) return { active: false, path: null };
+  const path = typeof value.path === "string" ? value.path : null;
+  return { active: value.active === true, path };
+}
+
+function isNonNegativeInt(value: unknown): value is number {
+  return (
+    typeof value === "number" && Number.isInteger(value) && value >= 0
+  );
+}
 
 /** M2 input contracts (mirrors of the Rust DTOs in `lotu-app`). */
 export type PointerAction = "down" | "move" | "up";
@@ -97,6 +161,14 @@ const ERROR_CODES: readonly ErrorCode[] = [
   "session_inactive",
   "input_invalid",
   "input_failed",
+  "capture_timeout",
+  "capture_invalid",
+  "capture_failed",
+  "recording_already_active",
+  "recording_inactive",
+  "recording_failed",
+  "user_cancelled",
+  "io_failed",
   "internal",
 ];
 

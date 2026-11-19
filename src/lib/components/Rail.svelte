@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { AppViewModel } from "../viewmodels/AppViewModel.svelte";
+  import type { SessionViewModel } from "../viewmodels/SessionViewModel.svelte";
 
   interface Props {
     app: AppViewModel;
+    session: SessionViewModel;
   }
 
-  let { app }: Props = $props();
+  let { app, session }: Props = $props();
 </script>
 
 <nav class="rail" aria-label="Acciones principales">
@@ -66,10 +68,11 @@
   <button
     class="rail-btn"
     type="button"
-    data-tip="Captura · M3"
-    aria-label="Captura de pantalla (disponible en M3)"
-    title="Captura de pantalla (M3)"
-    disabled
+    data-tip="Capturar pantalla"
+    aria-label="Capturar pantalla"
+    title="Capturar pantalla (PNG)"
+    disabled={!session.inputEnabled}
+    onclick={() => void session.capture()}
   >
     <svg
       width="20"
@@ -91,11 +94,13 @@
 
   <button
     class="rail-btn"
+    class:recording={session.recording?.active}
     type="button"
-    data-tip="Grabar · M3"
-    aria-label="Grabar vídeo (disponible en M3)"
-    title="Grabar vídeo (M3)"
-    disabled
+    data-tip={session.recording?.active ? "Detener grabación" : "Grabar vídeo"}
+    aria-label={session.recording?.active ? "Detener grabación" : "Grabar vídeo"}
+    title={session.recording?.active ? "Detener grabación" : "Grabar vídeo (MP4)"}
+    disabled={!session.inputEnabled}
+    onclick={() => void (session.recording?.active ? session.stopRecording() : session.startRecording())}
   >
     <svg
       width="20"
@@ -106,8 +111,12 @@
       stroke-width="1.8"
       aria-hidden="true"
     >
-      <circle cx="12" cy="12" r="8.5" />
-      <circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none" />
+      {#if session.recording?.active}
+        <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />
+      {:else}
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none" />
+      {/if}
     </svg>
   </button>
 
@@ -186,6 +195,11 @@
 
   .rail-btn:disabled {
     opacity: 0.45;
+  }
+
+  .rail-btn.recording {
+    color: var(--danger);
+    background: var(--danger-soft);
   }
 
   .rail-btn.active {

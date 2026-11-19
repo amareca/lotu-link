@@ -1,15 +1,22 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { ApiError, type LotuApi } from "./api";
 import {
   parseDeviceDtos,
+  parseRecordingDto,
+  parseRecordingStateDto,
   parseReplaySessionDto,
+  parseScreenshotDto,
   parseSessionDto,
   toErrorDto,
   type DeviceDto,
   type KeyAction,
   type KeyInput,
   type PointerInput,
+  type RecordingDto,
+  type RecordingStateDto,
   type ReplaySessionDto,
+  type ScreenshotDto,
   type ScrollInput,
   type SessionDto,
 } from "./dto";
@@ -88,6 +95,45 @@ export class TauriApi implements LotuApi {
     } catch (cause) {
       throw new ApiError(toErrorDto(cause));
     }
+  }
+
+  async captureScreenshot(): Promise<ScreenshotDto> {
+    try {
+      return parseScreenshotDto(await invoke<unknown>("capture_screenshot"));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  async startRecording(): Promise<RecordingDto> {
+    try {
+      return parseRecordingDto(await invoke<unknown>("start_recording"));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  async stopRecording(): Promise<RecordingDto> {
+    try {
+      return parseRecordingDto(await invoke<unknown>("stop_recording"));
+    } catch (cause) {
+      throw new ApiError(toErrorDto(cause));
+    }
+  }
+
+  onRecordingState(listener: (state: RecordingStateDto) => void): () => void {
+    let unlisten: (() => void) | null = null;
+    let disposed = false;
+    void listen<unknown>("recording-state", (event) => {
+      listener(parseRecordingStateDto(event.payload));
+    }).then((handle) => {
+      if (disposed) handle();
+      else unlisten = handle;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }
 
   async #invokeInput(command: string, args: Record<string, unknown>): Promise<void> {
