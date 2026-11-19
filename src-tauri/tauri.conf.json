@@ -27,7 +27,25 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": "all"
+    "active": true,
+    "targets": "nsis",
+    "publisher": "amareca",
+    "shortDescription": "Mira y controla un Android por USB",
+    "licenseFile": "../LICENSE",
+    "resources": [
+      "resources/scrcpy-server.jar",
+      "resources/adb/adb.exe",
+      "resources/adb/AdbWinApi.dll",
+      "resources/adb/AdbWinUsbApi.dll",
+      "licenses/scrcpy/LICENSE",
+      "licenses/scrcpy/NOTICE",
+      "licenses/adb/LICENSE",
+      "../THIRD_PARTY_NOTICES.md"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }

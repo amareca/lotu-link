@@ -16,16 +16,16 @@ use crate::state::AppState;
 /// A single [`SystemAdb`] is shared by the catalog and by the live video source
 /// (`docs/m1-contract.md` 4.6); the scrcpy server jar is resolved through
 /// `platform` (2.5) and is only required when a session starts.
-pub fn build_app_state(config_dir: PathBuf) -> AppState {
+pub fn build_app_state(resource_dir: PathBuf, config_dir: PathBuf) -> AppState {
     let adb = Arc::new(SystemAdb::new(
-        platform::adb_binary_path(),
+        platform::adb_binary_path(&resource_dir),
         platform::adb_server_port(),
     ));
 
     let catalog: Arc<dyn DeviceCatalog> = adb.clone();
     let video: Arc<dyn VideoSource> = Arc::new(ScrcpyVideoSource::new(
         Arc::clone(&adb),
-        platform::scrcpy_server_path(),
+        platform::scrcpy_server_path(&resource_dir),
     ));
     let capture: Arc<dyn ScreenshotCapture> = Arc::new(AdbScreenshotCapture::new(Arc::clone(&adb)));
     let recording = Arc::new(RecordingService::new(Box::new(Mp4Recorder::new())));

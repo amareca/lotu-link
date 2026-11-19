@@ -18,11 +18,15 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let resource_dir = app
+                .path()
+                .resource_dir()
+                .map_err(|error| error.to_string())?;
             let config_dir = app
                 .path()
                 .app_config_dir()
                 .map_err(|error| error.to_string())?;
-            app.manage(composition::build_app_state(config_dir));
+            app.manage(composition::build_app_state(resource_dir, config_dir));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

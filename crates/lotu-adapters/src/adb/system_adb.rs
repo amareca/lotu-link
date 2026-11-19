@@ -1,5 +1,7 @@
 use std::ffi::{OsStr, OsString};
 use std::io::ErrorKind;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
@@ -24,6 +26,10 @@ pub const SESSION_SHELL_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Budget for a native PNG screenshot (`docs/m3-contract.md`).
 pub const SCREENCAP_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Hide the console window of spawned ADB processes on Windows.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// ADB-backed [`DeviceCatalog`].
 #[derive(Debug, Clone)]
@@ -53,6 +59,11 @@ impl SystemAdb {
         command.args(args);
         command.kill_on_drop(true);
         command.stdin(Stdio::null());
+        // Windows would otherwise flash a console window for every short ADB
+        // invocation (device probes, screenshots, forwards...). This covers
+        // every command because `server_command` also goes through here.
+        #[cfg(windows)]
+        command.as_std_mut().creation_flags(CREATE_NO_WINDOW);
         command
     }
 

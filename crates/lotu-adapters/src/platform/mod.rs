@@ -26,10 +26,25 @@ pub enum VendorError {
     VendorMissing { path: PathBuf, env: &'static str },
 }
 
-/// Resolves the ADB binary: `LOTU_ADB_PATH` when set and non-empty, otherwise
-/// `adb` from `PATH`.
-pub fn adb_binary_path() -> PathBuf {
-    adb_binary_from_env(std::env::var_os(ADB_PATH_ENV))
+/// Resolves the ADB binary: `LOTU_ADB_PATH` first, then the vendored copy in
+/// release builds, or `adb` from `PATH` in development.
+pub fn adb_binary_path(resource_dir: &Path) -> PathBuf {
+    let override_path = std::env::var_os(ADB_PATH_ENV);
+    if override_path
+        .as_ref()
+        .is_some_and(|value| !value.is_empty())
+    {
+        return PathBuf::from(override_path.expect("checked above"));
+    }
+    if cfg!(debug_assertions) {
+        PathBuf::from(FALLBACK_ADB_BINARY)
+    } else {
+        adb_binary_from_resource(resource_dir)
+    }
+}
+
+fn adb_binary_from_resource(resource_dir: &Path) -> PathBuf {
+    resource_dir.join("resources").join("adb").join("adb.exe")
 }
 
 /// Resolves the private ADB server port: `LOTU_ADB_SERVER_PORT` when it parses
@@ -40,16 +55,27 @@ pub fn adb_server_port() -> u16 {
 
 /// Resolves the vendored scrcpy server jar.
 ///
-/// `LOTU_SCRCPY_SERVER_PATH` wins when set and non-empty; otherwise the dev
-/// default `<CARGO_MANIFEST_DIR>/../../src-tauri/resources/scrcpy-server.jar`
-/// (the workspace root, since this crate lives in `crates/<crate>`) is used.
+/// `LOTU_SCRCPY_SERVER_PATH` wins when set and non-empty. Development uses the
+/// workspace path; release builds use `resources/scrcpy-server.jar` under the
+/// Tauri resource directory (bundled by the installer).
 /// The path is returned even if the file does not exist; session code calls
 /// [`require_scrcpy_server`] before touching ADB.
-pub fn scrcpy_server_path() -> PathBuf {
-    scrcpy_server_path_from(
-        std::env::var_os(SCRCPY_SERVER_PATH_ENV),
-        Path::new(env!("CARGO_MANIFEST_DIR")),
-    )
+pub fn scrcpy_server_path(resource_dir: &Path) -> PathBuf {
+    let override_path = std::env::var_os(SCRCPY_SERVER_PATH_ENV);
+    if override_path
+        .as_ref()
+        .is_some_and(|value| !value.is_empty())
+    {
+        return PathBuf::from(override_path.expect("checked above"));
+    }
+    if cfg!(debug_assertions) {
+        return scrcpy_server_path_from(None, Path::new(env!("CARGO_MANIFEST_DIR")));
+    }
+    scrcpy_server_from_resource(resource_dir)
+}
+
+fn scrcpy_server_from_resource(resource_dir: &Path) -> PathBuf {
+    resource_dir.join("resources").join("scrcpy-server.jar")
 }
 
 /// Checks that `path` exists and is a regular file.
@@ -64,6 +90,7 @@ pub fn require_scrcpy_server(path: &Path) -> Result<&Path, VendorError> {
     }
 }
 
+#[cfg(test)]
 fn adb_binary_from_env(value: Option<OsString>) -> PathBuf {
     match value {
         Some(path) if !path.is_empty() => PathBuf::from(path),
@@ -98,6 +125,19 @@ fn workspace_root_from(manifest_dir: &Path) -> &Path {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bundled_resources_resolve_from_the_resource_dir() {
+        let root = Path::new("install-dir");
+        assert_eq!(
+            adb_binary_from_resource(root),
+            PathBuf::from(r"install-dir/resources/adb/adb.exe")
+        );
+        assert_eq!(
+            scrcpy_server_from_resource(root),
+            PathBuf::from(r"install-dir/resources/scrcpy-server.jar")
+        );
+    }
 
     #[test]
     fn adb_binary_falls_back_to_path_lookup() {

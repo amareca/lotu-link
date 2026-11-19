@@ -18,11 +18,15 @@
  * verified and then renamed atomically over the target.
  */
 
+import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
 
 const EXIT_OK = 0;
 const EXIT_VERIFICATION = 1;
@@ -58,6 +62,8 @@ class VendoringError extends Error {
  * @property {number} size
  * @property {string} target  Path relative to the repository root, as declared.
  * @property {string} path    Absolute path of the target.
+ * @property {'binary' | 'archive'} type  Artifact kind.
+ * @property {Array<{source: string, name: string, sha256: string, size: number}>} [files]
  */
 
 /**
@@ -127,7 +133,7 @@ function normalizeArtifact(name, raw) {
     );
   }
 
-  const { version, url, sha256, size, target } = /** @type {Record<string, unknown>} */ (raw);
+  const { version, url, sha256, size, target, type, files } = /** @type {Record<string, unknown>} */ (raw);
 
   if (typeof version !== 'string' || version.trim() === '') {
     throw new VendoringError(`${name}: version must be a non-empty string`, EXIT_VERIFICATION);
@@ -145,6 +151,43 @@ function normalizeArtifact(name, raw) {
     throw new VendoringError(`${name}: size must be a positive integer`, EXIT_VERIFICATION);
   }
 
+  const artifactType = type === undefined ? 'binary' : type;
+  if (artifactType !== 'binary' && artifactType !== 'archive') {
+    throw new VendoringError(`${name}: type must be "binary" or "archive"`, EXIT_VERIFICATION);
+  }
+
+  const artifactFiles = [];
+  if (artifactType === 'archive') {
+    if (!Array.isArray(files) || files.length === 0) {
+      throw new VendoringError(`${name}: archive needs a non-empty "files" list`, EXIT_VERIFICATION);
+    }
+    for (const file of files) {
+      if (file === null || typeof file !== 'object') {
+        throw new VendoringError(`${name}: invalid archive file entry`, EXIT_VERIFICATION);
+      }
+      const entry = /** @type {Record<string, unknown>} */ (file);
+      const { source, name: fileName, sha256: fileHash, size: fileSizeValue } = entry;
+      if (typeof source !== 'string' || source.includes('..') || path.isAbsolute(source)) {
+        throw new VendoringError(`${name}: invalid archive source ${String(source)}`, EXIT_VERIFICATION);
+      }
+      if (typeof fileName !== 'string' || fileName !== path.basename(fileName)) {
+        throw new VendoringError(`${name}: archive file name must be a basename`, EXIT_VERIFICATION);
+      }
+      if (typeof fileHash !== 'string' || !SHA256_HEX.test(fileHash)) {
+        throw new VendoringError(`${name}: invalid sha256 for ${fileName}`, EXIT_VERIFICATION);
+      }
+      if (!Number.isInteger(fileSizeValue) || /** @type {number} */ (fileSizeValue) <= 0) {
+        throw new VendoringError(`${name}: invalid size for ${fileName}`, EXIT_VERIFICATION);
+      }
+      artifactFiles.push({
+        source,
+        name: fileName,
+        sha256: fileHash,
+        size: /** @type {number} */ (fileSizeValue),
+      });
+    }
+  }
+
   return {
     name,
     version,
@@ -153,6 +196,8 @@ function normalizeArtifact(name, raw) {
     size: /** @type {number} */ (size),
     target,
     path: resolveTarget(name, target),
+    type: artifactType,
+    files: artifactFiles,
   };
 }
 
@@ -237,6 +282,22 @@ async function hashFile(filePath) {
  * @returns {Promise<Inspection>}
  */
 async function inspectArtifact(artifact) {
+  if (artifact.type === 'archive') {
+    for (const file of artifact.files ?? []) {
+      const target = path.join(artifact.path, file.name);
+      const size = await fileSize(target);
+      if (size === null) return { valid: false, reason: `${file.name} is missing` };
+      if (size !== file.size) {
+        return { valid: false, reason: `${file.name} size is ${size}, expected ${file.size}` };
+      }
+      const digest = await hashFile(target);
+      if (digest !== file.sha256) {
+        return { valid: false, reason: `${file.name} sha256 is ${digest}, expected ${file.sha256}` };
+      }
+    }
+    return { valid: true, reason: 'ok' };
+  }
+
   const size = await fileSize(artifact.path);
   if (size === null) {
     return { valid: false, reason: 'target is missing' };
@@ -254,6 +315,35 @@ async function inspectArtifact(artifact) {
   }
 
   return { valid: true, reason: 'ok' };
+}
+
+/**
+ * Extracts the selected files from a verified archive into its target folder.
+ * `tar` ships with Windows 10+ and all supported Unix systems, so no npm
+ * dependency is needed.
+ *
+ * @param {Artifact} artifact
+ * @param {string} archivePath
+ */
+async function extractArchive(artifact, archivePath) {
+  const extractDir = `${artifact.path}.extract`;
+  await rm(extractDir, { recursive: true, force: true });
+  await mkdir(extractDir, { recursive: true });
+  await mkdir(artifact.path, { recursive: true });
+
+  try {
+    await run('tar', ['-xf', archivePath, '-C', extractDir]);
+    for (const file of artifact.files ?? []) {
+      const source = path.join(extractDir, ...file.source.split('/'));
+      const resolved = path.resolve(extractDir, source);
+      if (!resolved.startsWith(path.resolve(extractDir) + path.sep)) {
+        throw new VendoringError(`${artifact.name}: unsafe archive path ${file.source}`, EXIT_VERIFICATION);
+      }
+      await copyFile(resolved, path.join(artifact.path, file.name));
+    }
+  } finally {
+    await rm(extractDir, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -303,6 +393,19 @@ async function downloadArtifact(artifact) {
       `downloaded sha256 is ${digest}, expected ${artifact.sha256}`,
       EXIT_VERIFICATION,
     );
+  }
+
+  if (artifact.type === 'archive') {
+    try {
+      await extractArchive(artifact, temporary);
+      await rm(temporary, { force: true });
+    } catch (error) {
+      await rm(temporary, { force: true });
+      if (error instanceof VendoringError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new VendoringError(`cannot extract the verified archive: ${message}`, EXIT_NETWORK);
+    }
+    return;
   }
 
   try {
